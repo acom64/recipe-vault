@@ -27,19 +27,43 @@ class Recipe(db.Model):
 
 
 def parse_ingredients(ingredient_text):
-  lines = ingredient_text.splitlines()
-  ingredients = []
-  for line in lines:
-    if not line.strip():
-      continue
-    parts = line.split()
-    quantity = float(parts[0])
-    unit = parts[1]
-    name = " ".join(parts[2:])
-    ingredient = Ingredient(
-      name = name,
-      unit = unit,
-      quantity = quantity 
-    )
-    ingredients.append(ingredient)
-  return ingredients
+    """Convert ingredient text into Ingredient objects."""
+
+    lines = ingredient_text.splitlines()
+    ingredients = []
+
+    for line in lines:
+        line = line.strip()
+
+        if not line:
+            continue
+
+        parts = line.split()
+
+        try:
+            quantity = float(parts[0])
+            has_quantity = True
+        except ValueError:
+            quantity = None
+            has_quantity = False
+
+        if has_quantity:
+            if len(parts) >= 3:
+                unit = parts[1]
+                name = " ".join(parts[2:])
+            else:
+                unit = ""
+                name = parts[1]
+        else:
+            unit = ""
+            name = line
+
+        ingredient = Ingredient(
+            name=name,
+            quantity=quantity,
+            unit=unit,
+        )
+
+        ingredients.append(ingredient)
+
+    return ingredients
