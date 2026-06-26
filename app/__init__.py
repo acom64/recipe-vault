@@ -1,11 +1,10 @@
 from flask import Flask
+from .routes import register_routes
 
 
 def create_app():
     app = Flask(__name__)
 
-    @app.route("/")
-    def home():
-        return "<h1>Recipe Vault</h1>"
+    register_routes(app)
 
-    return app
+    return(app)
