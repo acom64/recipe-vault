@@ -35,6 +35,30 @@ class Recipe:
             )
           ],
           instructions= "cook",
-        )
+        ),
 
+        Recipe(
+          id = 2,
+          title="Steak",
+          description="Nice Steak",
+          ingredients=[
+            Ingredient(
+                name="Ribeye",
+                quantity=2,
+                unit="lbs",
+            )
+            
+          ],
+          instructions= "cook",
+        )
       ]
+  
+  @staticmethod
+  def get_by_id(recipe_id):
+      """Returns recipe associated with provided id"""
+      recipe_list=Recipe.get_all()
+      for recipe in recipe_list:
+        if recipe.id == recipe_id:
+          return recipe
+      
+      return None
