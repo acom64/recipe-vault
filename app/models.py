@@ -29,8 +29,16 @@ class Recipe:
       for recipe in recipe_list:
         if recipe.id == recipe_id:
           return recipe
-      
       return None
+  
+  @staticmethod
+  def add(recipe):
+      """Assigns an ID to a recipe and stores it in memory."""
+      new_id = len(RECIPES) + 1
+      recipe.id = new_id
+      RECIPES.append(recipe)
+
+
 
 RECIPES = [
    Recipe(
@@ -67,3 +75,21 @@ RECIPES = [
           instructions = "cook",
         )
 ]
+
+def parse_ingredients(ingredient_text):
+  lines = ingredient_text.splitlines()
+  ingredients = []
+  for line in lines:
+    if not line.strip():
+      continue
+    parts = line.split()
+    quantity = float(parts[0])
+    unit = parts[1]
+    name = " ".join(parts[2:])
+    ingredient = Ingredient(
+      name = name,
+      unit = unit,
+      quantity = quantity 
+    )
+    ingredients.append(ingredient)
+  return ingredients

@@ -5,8 +5,29 @@
 {% block content %}
 <h1>Add Recipe</h1>
 <form method="POST">
-  <label for="title">Recipe Title</label>
-  <input type ="text" name ="title" id="title" required>
+  <label for="title">Recipe Title</label><br>
+  <input 
+      type ="text" 
+      name ="title" 
+      id="title" 
+      required><br><br>
+  <label for="Desctiption">Description</label><br>
+  <textarea 
+      name ="description" 
+      id="description">
+  </textarea><br><br>
+  <label for="Ingredients">Ingredients</label><br>
+<textarea
+    name="ingredients"
+    id="ingredients"
+    placeholder="2 cups flour&#10;1 tsp salt&#10;3 each eggs">
+</textarea><br><br>
+  <label for="Instructions">Instructions</label><br>
+  <textarea
+      name ="instructions" 
+      id="instructions">
+  </textarea><br><br>
+  <button type="submit">Submit</button>
 </form>
 
 {% endblock %}
