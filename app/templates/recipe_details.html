@@ -1,11 +1,18 @@
 {% extends "base.html" %}
 
-{% block title %}{% endblock %}
+
 
 {% block content %}
+<a href="/recipes" class="text-decoration-none text-dark">
+  <h6>← Back to Recipes</h6>
+</a>
 <h1>{{recipe.title}}</h1>
 <p>{{recipe.description}}</p>
-<h2>{{recipe.ingredients}}</h2>
-<h2>{{recipe.instructions}}</h2>
+<h2>Ingredients:</h2>
+{% for ingredient in recipe.ingredients %}
+<p>{{ingredient.quantity}} {{ingredient.unit}} {{ingredient.name}}</p>
+{% endfor %}
+<h2>Instructions</h2>
+<p>{{recipe.instructions}}</p>
 
 {% endblock %}

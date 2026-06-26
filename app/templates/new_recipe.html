@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+
+{% block title %}Add Recipe{% endblock %}
+
+{% block content %}
+<h1>Add Recipe</h1>
+<form method="POST">
+  <label for="title">Recipe Title</label>
+  <input type ="text" name ="title" id="title" required>
+</form>
+
+{% endblock %}
