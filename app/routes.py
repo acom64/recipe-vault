@@ -24,9 +24,9 @@ def register_routes(app):
      return render_template("new_recipe.html")
     else:
       title = request.form["title"]
-      description = request.form["description"]
+      description = request.form["description"].strip()
       ingredients = parse_ingredients(request.form["ingredients"])
-      instructions = request.form["instructions"]
+      instructions = request.form["instructions"].strip()
       recipe = Recipe(
         title = title,
         description = description,

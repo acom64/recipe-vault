@@ -2,23 +2,40 @@
 
 {% block title %}Recipes{% endblock %}
 
+Now let’s improve recipes.html.
+
+The goal is:
+
+nicer page header
+better recipe cards
+clear “Add Recipe” button
+whole card still clickable
+
+Replace the main content area with this structure:
+
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2>Recipes</h2>
+    <div>
+        <h1 class="mb-1">Recipes</h1>
+        <p class="text-muted mb-0">Browse your saved meals and ingredients.</p>
+    </div>
+
     <a class="btn btn-primary" href="/recipes/new">Add Recipe</a>
 </div>
 
-<div class="row">
+<div class="row g-4">
     {% for recipe in recipes %}
-    <div class="col-md-4 mb-3">
-        <a href="/recipes/{{ recipe.id }}" class="text-decoration-none text-dark">   
-            <div class="card h-100">    
+    <div class="col-md-6 col-lg-4">
+        <a href="/recipes/{{ recipe.id }}" class="text-decoration-none text-dark">
+            <div class="card h-100 shadow-sm">
                 <div class="card-body">
                     <h5 class="card-title">{{ recipe.title }}</h5>
-                    <p class="card-text">{{ recipe.description }}</p>
+                    <p class="card-text text-muted">
+                        {{ recipe.description or "No description added." }}
+                    </p>
                 </div>
-        </a>
             </div>
+        </a>
     </div>
     {% endfor %}
 </div>

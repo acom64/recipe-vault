@@ -3,31 +3,52 @@
 {% block title %}Add Recipe{% endblock %}
 
 {% block content %}
-<h1>Add Recipe</h1>
-<form method="POST">
-  <label for="title">Recipe Title</label><br>
-  <input 
-      type ="text" 
-      name ="title" 
-      id="title" 
-      required><br><br>
-  <label for="Desctiption">Description</label><br>
-  <textarea 
-      name ="description" 
-      id="description">
-  </textarea><br><br>
-  <label for="Ingredients">Ingredients</label><br>
-<textarea
-    name="ingredients"
-    id="ingredients"
-    placeholder="2 cups flour&#10;1 tsp salt&#10;3 each eggs">
-</textarea><br><br>
-  <label for="Instructions">Instructions</label><br>
-  <textarea
-      name ="instructions" 
-      id="instructions">
-  </textarea><br><br>
-  <button type="submit">Submit</button>
-</form>
+<div class="card shadow-sm">
+  <div class="card-body">
+    <h1 class="mb-4">Add Recipe</h1>
 
+    <form method="POST">
+      <div class="mb-3">
+        <label for="title" class="form-label">Recipe Title</label>
+        <input
+          type="text"
+          class="form-control"
+          name="title"
+          id="title"
+          required>
+      </div>
+
+      <div class="mb-3">
+        <label for="description" class="form-label">Description</label>
+        <textarea
+          class="form-control"
+          name="description"
+          id="description"
+          rows="3"></textarea>
+      </div>
+
+      <div class="mb-3">
+        <label for="ingredients" class="form-label">Ingredients</label>
+        <textarea
+          class="form-control"
+          name="ingredients"
+          id="ingredients"
+          rows="6"
+          placeholder="2 cups flour&#10;3 eggs&#10;salt&#10;pepper to taste"
+          required></textarea>
+      </div>
+
+      <div class="mb-4">
+        <label for="instructions" class="form-label">Instructions</label>
+        <textarea
+          class="form-control"
+          name="instructions"
+          id="instructions"
+          rows="6"></textarea>
+      </div>
+
+      <button type="submit" class="btn btn-primary">Save Recipe</button>
+    </form>
+  </div>
+</div>
 {% endblock %}
