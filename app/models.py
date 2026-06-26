@@ -66,4 +66,26 @@ def parse_ingredients(ingredient_text):
 
         ingredients.append(ingredient)
 
-    return ingredients
+        return ingredients
+
+def format_ingredients(ingredients):
+    lines = []
+
+    for ingredient in ingredients:
+        line = ""
+
+        if ingredient.quantity is not None:
+            line += str(ingredient.quantity)
+
+            if ingredient.unit:
+                line += f" {ingredient.unit}"
+
+            line += " "
+
+        line += ingredient.name
+
+        lines.append(line)
+
+    return "\n".join(lines)
+
+    

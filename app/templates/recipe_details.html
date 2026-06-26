@@ -3,10 +3,31 @@
 {% block title %}{{ recipe.title }}{% endblock %}
 
 {% block content %}
-<div class="mb-3">
+
+<div class="d-flex justify-content-between align-items-center mb-3">
   <a href="/recipes" class="text-decoration-none">
     ← Back to Recipes
   </a>
+
+  <div>
+    <a
+      href="{{ url_for('edit_recipe', recipe_id=recipe.id) }}"
+      class="btn btn-outline-primary btn-sm">
+      Edit
+    </a>
+
+    <form
+      action="{{ url_for('delete_recipe', recipe_id=recipe.id) }}"
+      method="POST"
+      class="d-inline">
+      <button
+        type="submit"
+        class="btn btn-outline-danger btn-sm"
+        onclick="return confirm('Delete this recipe?');">
+        Delete
+      </button>
+    </form>
+  </div>
 </div>
 
 <div class="card shadow-sm">
@@ -39,4 +60,5 @@
     {% endif %}
   </div>
 </div>
+
 {% endblock %}
