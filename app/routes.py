@@ -1,5 +1,6 @@
 from flask import render_template, request, redirect, url_for
 from .models import Recipe, parse_ingredients
+from.extensions import db
 
 def register_routes(app):
 
@@ -9,12 +10,12 @@ def register_routes(app):
   
   @app.route("/recipes") 
   def recipes():
-    recipeList=Recipe.get_all()
+    recipeList=Recipe.query.all()
     return render_template("recipes.html", recipes=recipeList)
   
   @app.route("/recipes/<int:recipe_id>")
   def recipe_detail(recipe_id):
-     recipe=Recipe.get_by_id(recipe_id)
+     recipe=Recipe.query.filter_by(id=recipe_id).first()
      return render_template("recipe_details.html", recipe=recipe)
   
   @app.route("/recipes/new",methods=["GET","POST"])
@@ -29,11 +30,13 @@ def register_routes(app):
       recipe = Recipe(
         title = title,
         description = description,
-        ingredients = ingredients,
         instructions = instructions
       )
 
-      Recipe.add(recipe)
+      recipe.ingredients = ingredients
+
+      db.session.add(recipe)
+      db.session.commit()
       return redirect(url_for("recipe_detail",recipe_id=recipe.id))
 
   return app

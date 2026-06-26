@@ -1,80 +1,30 @@
 from dataclasses import dataclass, field
+from .extensions import db
 
-@dataclass
-class Ingredient:
+
+class Ingredient(db.Model):
   """Represents a single ingredient within a recipe"""
-  name: str
-  quantity: float
-  unit: str
+  id = db.Column(db.Integer, primary_key=True)
+  name = db.Column(db.String(50), nullable=False)
+  quantity = db.Column(db.Float)
+  unit = db.Column(db.String(50))
+  recipe_id = db.Column(db.Integer, db.ForeignKey("recipe.id"), nullable=False)
   
 
-@dataclass
-class Recipe:
-  """Represents a single recipe will map to database eventually"""
-  id: int | None = None
-  title: str = ""
-  description: str = ""
-  ingredients: list[Ingredient] = field(default_factory=list)
-  instructions: str = ""
 
-  @staticmethod
-  def get_all(): 
-    """Returns all recipes, currently using sample data as database doesn't exist"""
-    return RECIPES
-    
-  @staticmethod
-  def get_by_id(recipe_id):
-      """Returns recipe associated with provided id"""
-      recipe_list=Recipe.get_all()
-      for recipe in recipe_list:
-        if recipe.id == recipe_id:
-          return recipe
-      return None
-  
-  @staticmethod
-  def add(recipe):
-      """Assigns an ID to a recipe and stores it in memory."""
-      new_id = len(RECIPES) + 1
-      recipe.id = new_id
-      RECIPES.append(recipe)
+class Recipe(db.Model):
+  """Represents a single recipe"""
+  id = db.Column(db.Integer, primary_key=True)
+  title = db.Column(db.String(100), nullable=False)
+  description = db.Column(db.String(500))
+  ingredients = db.relationship(
+    "Ingredient", 
+     backref="recipe", 
+     cascade="all, delete-orphan")
+  instructions = db.Column(db.Text)
 
 
 
-RECIPES = [
-   Recipe(
-          id = 1,
-          title="Chicken Alfredo",
-          description="Creamy pasta with chicken and parmesean",
-          ingredients = [
-            Ingredient(
-                name = "Chicken Breast",
-                quantity = 2,
-                unit = "lbs",
-            ),
-            Ingredient(
-                name = "Parmesean",
-                quantity = 4,
-                unit = "oz",
-            )
-          ],
-          instructions= "cook",
-        ),
-
-        Recipe(
-          id = 2,
-          title="Steak",
-          description = "Nice Steak",
-          ingredients = [
-            Ingredient(
-                name = "Ribeye",
-                quantity = 2,
-                unit = "lbs",
-            )
-            
-          ],
-          instructions = "cook",
-        )
-]
 
 def parse_ingredients(ingredient_text):
   lines = ingredient_text.splitlines()
