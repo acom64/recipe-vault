@@ -1,0 +1,17 @@
+{
+  "listen": [":8999"],
+  "routes": [
+    {
+      "handle": [
+        {
+          "handler": "reverse_proxy",
+          "upstreams": [
+            {
+              "dial": "127.0.0.1:9000"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
