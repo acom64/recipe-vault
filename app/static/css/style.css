@@ -18,6 +18,10 @@ main.container {
     gap: 0.35rem;
 }
 
+.navbar-toggler {
+    min-height: 44px;
+}
+
 .nav-link {
     border-radius: 0.5rem;
     padding: 0.6rem 0.8rem;
@@ -75,17 +79,14 @@ textarea {
 }
 
 @media (max-width: 768px) {
-    .navbar-brand {
-        margin-bottom: 0.5rem;
-    }
-
     .navbar-nav {
-        justify-content: space-between;
+        align-items: stretch;
+        gap: 0.45rem;
         width: 100%;
     }
 
     .nav-link {
-        padding: 0.55rem 0.35rem;
+        padding: 0.6rem 0.75rem;
     }
 
     .display-5 {

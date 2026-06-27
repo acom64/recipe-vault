@@ -1,12 +1,12 @@
-# Deploy Recipe Vault on a VPS
+# Deploy Recipe Vault on an Ubuntu LTS VPS
 
-These steps assume an Ubuntu/Debian VPS, Nginx, Gunicorn, systemd, and this app running from `/var/www/recipe-vault`.
+These steps assume an Ubuntu LTS VPS, Caddy, Gunicorn, and this app running from `~/recipe-vault`.
 
 ## 1. Install server packages
 
 ```bash
 sudo apt update
-sudo apt install python3 python3-venv python3-pip nginx git
+sudo apt install python3 python3-venv python3-pip git curl caddy
 ```
 
 ## 2. Put the app on the server
@@ -14,140 +14,76 @@ sudo apt install python3 python3-venv python3-pip nginx git
 Clone or copy this project to the server:
 
 ```bash
-sudo mkdir -p /var/www
-sudo chown "$USER":"$USER" /var/www
-cd /var/www
-git clone YOUR_REPO_URL recipe-vault
+cd ~
+git clone https://github.com/acom64/recipe-vault.git recipe-vault
 cd recipe-vault
 ```
 
 If you are copying files manually instead of using Git, make sure the project contains `app/`, `wsgi.py`, `requirements.txt`, `init_db.py`, and `run.py`.
 
-## 3. Create the virtual environment
+## 3. Start or update the app
+
+The deploy script creates the virtual environment, installs dependencies, initializes or updates the database, restarts Gunicorn on `127.0.0.1:9000`, and configures Caddy to serve the app on port `8999`.
 
 ```bash
-cd /var/www/recipe-vault
-python3 -m venv venv
-source venv/bin/activate
-pip install --upgrade pip
-pip install -r requirements.txt
+cd ~/recipe-vault
+bash deploy/start_recipe_vault.sh
 ```
 
-## 4. Initialize the database
+Open the app at:
+
+```text
+http://YOUR_SERVER_IP:8999
+```
+
+The SQLite database is stored at `instance/recipes.db`.
+
+## Updating the app
 
 ```bash
-cd /var/www/recipe-vault
-source venv/bin/activate
-python init_db.py
+cd ~/recipe-vault
+git pull
+bash deploy/start_recipe_vault.sh
 ```
 
-The SQLite database will be created in `instance/recipes.db`.
+## Optional environment overrides
 
-## 5. Test Gunicorn
+Set these before running the script when you need different paths or ports:
 
 ```bash
-cd /var/www/recipe-vault
-source venv/bin/activate
-gunicorn --bind 127.0.0.1:8000 wsgi:app
+export APP_DIR="$HOME/recipe-vault"
+export APP_HOST="127.0.0.1"
+export APP_PORT="9000"
+export GIT_REF="origin/main"
+export CADDY_ADMIN_URL="http://127.0.0.1:2019"
+bash deploy/start_recipe_vault.sh
 ```
 
-Visit `http://YOUR_SERVER_IP:8000` only if your firewall allows it. Press `Ctrl+C` after the test.
-
-## 6. Create a systemd service
-
-Create `/etc/systemd/system/recipe-vault.service`:
-
-```ini
-[Unit]
-Description=Recipe Vault Flask app
-After=network.target
-
-[Service]
-User=www-data
-Group=www-data
-WorkingDirectory=/var/www/recipe-vault
-Environment="PATH=/var/www/recipe-vault/venv/bin"
-ExecStart=/var/www/recipe-vault/venv/bin/gunicorn --workers 3 --bind unix:/var/www/recipe-vault/recipe-vault.sock wsgi:app
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Give `www-data` access to the app and SQLite database:
-
-```bash
-sudo chown -R www-data:www-data /var/www/recipe-vault
-```
-
-Start the service:
-
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable recipe-vault
-sudo systemctl start recipe-vault
-sudo systemctl status recipe-vault
-```
-
-## 7. Configure Nginx
-
-Create `/etc/nginx/sites-available/recipe-vault`:
-
-```nginx
-server {
-    listen 80;
-    server_name YOUR_DOMAIN_OR_SERVER_IP;
-
-    location /static {
-        alias /var/www/recipe-vault/app/static;
-    }
-
-    location / {
-        include proxy_params;
-        proxy_pass http://unix:/var/www/recipe-vault/recipe-vault.sock;
-    }
-}
-```
-
-Enable the site:
-
-```bash
-sudo ln -s /etc/nginx/sites-available/recipe-vault /etc/nginx/sites-enabled/
-sudo nginx -t
-sudo systemctl restart nginx
-```
-
-## 8. Open the firewall
+## Firewall
 
 If you use UFW:
 
 ```bash
 sudo ufw allow OpenSSH
-sudo ufw allow 'Nginx Full'
+sudo ufw allow 8999/tcp
 sudo ufw enable
-```
-
-## 9. Optional HTTPS
-
-After your domain points to the VPS:
-
-```bash
-sudo apt install certbot python3-certbot-nginx
-sudo certbot --nginx -d YOUR_DOMAIN
-```
-
-## Updating the app
-
-```bash
-cd /var/www/recipe-vault
-sudo -u www-data git pull
-sudo -u www-data /var/www/recipe-vault/venv/bin/pip install -r requirements.txt
-sudo systemctl restart recipe-vault
 ```
 
 ## Useful checks
 
 ```bash
-sudo journalctl -u recipe-vault -n 100 --no-pager
-sudo systemctl status recipe-vault
-sudo nginx -t
+tail -n 100 ~/recipe-vault/gunicorn.log
+curl -fsS http://127.0.0.1:9000/
+curl -fsS http://127.0.0.1:8999/
+sudo systemctl status caddy
+```
+
+## Optional HTTPS
+
+If you want HTTPS on a domain instead of port `8999`, point the domain to the VPS and use a normal Caddy site config such as:
+
+```caddyfile
+YOUR_DOMAIN {
+    reverse_proxy 127.0.0.1:9000
+}
 ```
