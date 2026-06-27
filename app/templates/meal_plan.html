@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block title %}Meal Planner{% endblock %}
+
+{% block content %}
+<h1>Weekly Meal Planner</h1>
+
+<form method="POST">
+  
+  {%for day in days%}
+    <label for="{{day|lower}}">{{day}}</label>
+    <select id="{{day|lower}}" name="{{day|lower}}">
+      {% for recipe in recipes %}
+        <option value="{{recipe.id}}">{{recipe.title}}</option>
+      {%endfor%}
+    </select><br>
+  {%endfor%}
+
+<button type="submit" class="btn btn-primary mt-3">
+  Save Meal Plan
+</button>
+
+</form>
+
+
+
+{% endblock %}

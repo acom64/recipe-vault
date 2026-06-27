@@ -69,7 +69,7 @@ def parse_ingredients(ingredient_text):
 
         ingredients.append(ingredient)
 
-        return ingredients
+    return ingredients
 
 def format_ingredients(ingredients):
     lines = []
