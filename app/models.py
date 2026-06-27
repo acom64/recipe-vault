@@ -23,8 +23,11 @@ class Recipe(db.Model):
      cascade="all, delete-orphan")
   instructions = db.Column(db.Text)
 
-
-
+class PlannedMeal(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    day = db.Column(db.String(10), nullable=False)
+    recipe_id = db.Column(db.Integer, db.ForeignKey("recipe.id"), nullable=False)
+    recipe = db.relationship("Recipe")
 
 def parse_ingredients(ingredient_text):
     """Convert ingredient text into Ingredient objects."""
