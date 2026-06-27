@@ -1,6 +1,5 @@
 param(
-    [Parameter(Mandatory = $true)]
-    [string]$Server,
+    [string]$Server = "acom@5.78.110.7",
 
     [string]$AppDir = "~/recipe-vault",
     [string]$Remote = "origin",
