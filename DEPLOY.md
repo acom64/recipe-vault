@@ -40,10 +40,17 @@ The SQLite database is stored at `instance/recipes.db`.
 
 ## Updating the app
 
+From the server, update to the latest GitHub `main` and restart the app with:
+
 ```bash
 cd ~/recipe-vault
-git pull
-bash deploy/start_recipe_vault.sh
+bash deploy/update_from_github_main.sh
+```
+
+From this Windows machine, run the same server update over SSH:
+
+```powershell
+.\deploy\update-server-from-main.ps1 -Server user@YOUR_SERVER_IP
 ```
 
 ## Optional environment overrides
