@@ -1,27 +1,85 @@
 {% extends "base.html" %}
 
-{% block title %}Meal Planner{% endblock %}
+{% block title %}Meal Plan{% endblock %}
 
 {% block content %}
-<h1>Weekly Meal Planner</h1>
+<h1 class="mb-4">Weekly Meal Planner</h1>
 
-<form method="POST">
-  
-  {%for day in days%}
-    <label for="{{day|lower}}">{{day}}</label>
-    <select id="{{day|lower}}" name="{{day|lower}}">
-      {% for recipe in recipes %}
-        <option value="{{recipe.id}}">{{recipe.title}}</option>
-      {%endfor%}
-    </select><br>
-  {%endfor%}
+<div class="row g-4">
+  <!-- Left side: form -->
+  <div class="col-md-6">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h4 class="mb-3">Choose Meals</h4>
 
-<button type="submit" class="btn btn-primary mt-3">
-  Save Meal Plan
-</button>
+        <form method="POST">
+          {% for day in days %}
+            <div class="mb-3">
+              <label for="{{ day|lower }}" class="form-label">{{ day }}</label>
 
-</form>
+              <select
+                id="{{ day|lower }}"
+                name="{{ day|lower }}"
+                class="form-select"
+                >
+                <option value="" selected>Select a recipe</option>
 
+                {% for recipe in recipes %}
+                  <option value="{{ recipe.id }}">{{ recipe.title }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          {% endfor %}
 
+          <button type="submit" class="btn btn-primary">
+            Save Meal Plan
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
 
+  <!-- Right side: current saved plan -->
+  <div class="col-md-6">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h4 class="mb-3">Current Plan</h4>
+
+        {% if planned_meals %}
+          {% for planned_meal in planned_meals %}
+            <p class="mb-2">
+              <strong>{{ planned_meal.day }}</strong>
+              —
+              {{ planned_meal.recipe.title }}
+            </p>
+          {% endfor %}
+        {% else %}
+          <p class="text-muted mb-0">No meals planned yet.</p>
+        {% endif %}
+      </div>
+    </div>
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h4 class="mb-3">Shopping List</h4>
+        <ul>
+            {% for ingredient in planned_ingredients%}
+
+          <li class="mb-2">
+
+            {%if ingredient.quantity%}
+              {{ingredient.quantity}}
+            {%endif%}
+
+            {%if ingredient.unit%}
+              {{ingredient.unit}}
+            {%endif%}
+
+            {{ingredient.name}}
+          </li>
+            {%endfor%}
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
 {% endblock %}

@@ -1,5 +1,5 @@
 from flask import render_template, request, redirect, url_for
-from .models import Recipe, parse_ingredients, format_ingredients
+from .models import Recipe, parse_ingredients, format_ingredients, PlannedMeal
 from .extensions import db
 
 
@@ -82,9 +82,9 @@ def register_routes(app):
 
         return redirect(url_for("recipes"))
 
-    @app.route("/meal-plan")
+    @app.route("/meal-plan", methods=["GET","POST"])
     def meal_plan():
-        days = [
+      days = [
             "Monday",
             "Tuesday",
             "Wednesday",
@@ -94,12 +94,50 @@ def register_routes(app):
             "Sunday",
         ]
 
-        recipes = Recipe.query.all()
+      recipes = Recipe.query.all()
+      
+      if request.method == "POST":
+        PlannedMeal.query.delete()
+        for day in days:
+          recipe_id = request.form.get(day.lower(),"")
+          if not recipe_id:
+            continue
+          planned_meal = PlannedMeal(
+            day=day,
+            recipe_id=recipe_id,
+          )
+          
+          db.session.add(planned_meal)
 
-        return render_template(
-            "meal_plan.html",
-            recipes=recipes,
-            days=days
-        )
+        db.session.commit()
+        
+        return redirect(url_for("meal_plan"))
+       
+      planned_meals = PlannedMeal.query.all()
+
+      planned_ingredients = []
+      grouped_ingredients = {}
+
+      for planned_meal in planned_meals:
+          for ingredient in planned_meal.recipe.ingredients:
+              key = (ingredient.name.lower(), ingredient.unit.lower())
+
+              if key in grouped_ingredients:
+                  existing_ingredient = grouped_ingredients[key]
+
+                  if existing_ingredient.quantity and ingredient.quantity:
+                      existing_ingredient.quantity += ingredient.quantity
+              else:
+                  grouped_ingredients[key] = ingredient
+
+      planned_ingredients = grouped_ingredients.values()
+
+      return render_template(
+              "meal_plan.html",
+              recipes = recipes,
+              days = days,
+              planned_meals = planned_meals,
+              planned_ingredients = planned_ingredients
+          )
 
     return app
