@@ -30,29 +30,32 @@
 
       <div class="row g-3 mb-3">
         <div class="col-md-6">
-          <label for="photo" class="form-label">Recipe Photo</label>
+          <label for="food_category" class="form-label">Food Category</label>
           <input
-            type="file"
+            type="text"
             class="form-control"
-            name="photo"
-            id="photo"
-            accept="image/png,image/jpeg,image/gif,image/webp">
-          {% if recipe and recipe.photo_filename %}
-            <div class="form-text">Current photo will stay unless you choose a new one.</div>
-          {% endif %}
+            name="food_category"
+            id="food_category"
+            list="food-category-options"
+            value="{{ recipe.food_category if recipe else '' }}"
+            placeholder="Sandwiches, salads, bowls, soups">
+          <datalist id="food-category-options">
+            {% for category in food_categories %}
+              <option value="{{ category }}"></option>
+            {% endfor %}
+          </datalist>
         </div>
 
         <div class="col-md-6">
-          <label for="chef_photo" class="form-label">Chef Photo</label>
-          <input
-            type="file"
-            class="form-control"
-            name="chef_photo"
-            id="chef_photo"
-            accept="image/png,image/jpeg,image/gif,image/webp">
-          {% if recipe and recipe.chef_photo_filename %}
-            <div class="form-text">Current chef photo will stay unless you choose a new one.</div>
-          {% endif %}
+          <label for="meal_type" class="form-label">Meal Type</label>
+          <select class="form-select" name="meal_type" id="meal_type">
+            <option value="">Select a meal type</option>
+            {% for value, label in meal_types %}
+              <option value="{{ value }}" {% if recipe and recipe.meal_type == value %}selected{% endif %}>
+                {{ label }}
+              </option>
+            {% endfor %}
+          </select>
         </div>
       </div>
 
@@ -69,11 +72,65 @@
 
       <div class="mb-4">
         <label for="instructions" class="form-label">Instructions</label>
+        <div class="markdown-toolbar" aria-label="Instructions formatting options">
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-format="heading" title="Heading">H</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-format="bold" title="Bold">B</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-format="italic" title="Italic">I</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-format="bullet" title="Bulleted list">&bull;</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-format="number" title="Numbered list">1.</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-format="left" title="Align left">&larr;</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-format="center" title="Align center">&harr;</button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-format="right" title="Align right">&rarr;</button>
+        </div>
         <textarea
           class="form-control"
           name="instructions"
           id="instructions"
           rows="6">{{ recipe.instructions if recipe else '' }}</textarea>
+      </div>
+
+      <div class="row g-3 mb-3">
+        <div class="col-md-6">
+          <label for="photo" class="form-label">Recipe Photo</label>
+          <div class="photo-upload-picker">
+            <label class="btn btn-light photo-upload-button" for="photo">
+              Choose Photo
+            </label>
+            <span class="photo-upload-file text-muted" data-empty-label="No recipe photo selected">
+              No recipe photo selected
+            </span>
+            <input
+              type="file"
+              class="visually-hidden photo-upload-input"
+              name="photo"
+              id="photo"
+              accept="image/png,image/jpeg,image/gif,image/webp">
+          </div>
+          {% if recipe and recipe.photo_filename %}
+            <div class="form-text">Current photo will stay unless you choose a new one.</div>
+          {% endif %}
+        </div>
+
+        <div class="col-md-6">
+          <label for="chef_photo" class="form-label">Chef Photo</label>
+          <div class="photo-upload-picker">
+            <label class="btn btn-light photo-upload-button" for="chef_photo">
+              Choose Photo
+            </label>
+            <span class="photo-upload-file text-muted" data-empty-label="No chef photo selected">
+              No chef photo selected
+            </span>
+            <input
+              type="file"
+              class="visually-hidden photo-upload-input"
+              name="chef_photo"
+              id="chef_photo"
+              accept="image/png,image/jpeg,image/gif,image/webp">
+          </div>
+          {% if recipe and recipe.chef_photo_filename %}
+            <div class="form-text">Current chef photo will stay unless you choose a new one.</div>
+          {% endif %}
+        </div>
       </div>
 
       <button type="submit" class="btn btn-primary btn-lg w-100 w-md-auto">
@@ -82,4 +139,59 @@
     </form>
   </div>
 </div>
+
+<script>
+  const instructions = document.querySelector("#instructions");
+  const toolbar = document.querySelector(".markdown-toolbar");
+
+  const linePrefix = (text, prefixer) => {
+    const lines = (text || "Step").split("\n");
+    return lines.map((line, index) => prefixer(line || "Step", index)).join("\n");
+  };
+
+  const formatSelection = (format) => {
+    const start = instructions.selectionStart;
+    const end = instructions.selectionEnd;
+    const selected = instructions.value.slice(start, end);
+    const fallback = "Step";
+    let replacement = selected || fallback;
+
+    if (format === "bold") {
+      replacement = `**${selected || "bold text"}**`;
+    } else if (format === "italic") {
+      replacement = `*${selected || "italic text"}*`;
+    } else if (format === "heading") {
+      replacement = linePrefix(selected || "Section", (line) => `# ${line.replace(/^#+\s*/, "")}`);
+    } else if (format === "bullet") {
+      replacement = linePrefix(selected, (line) => `- ${line.replace(/^[-*]\s*/, "")}`);
+    } else if (format === "number") {
+      replacement = linePrefix(selected, (line, index) => `${index + 1}. ${line.replace(/^\d+[.)]\s*/, "")}`);
+    } else if (["left", "center", "right"].includes(format)) {
+      replacement = `::: ${format}\n${selected || fallback}\n:::`;
+    }
+
+    instructions.setRangeText(replacement, start, end, "select");
+    instructions.focus();
+  };
+
+  toolbar.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-format]");
+
+    if (!button) {
+      return;
+    }
+
+    formatSelection(button.dataset.format);
+  });
+
+  document.querySelectorAll(".photo-upload-picker").forEach((picker) => {
+    const input = picker.querySelector(".photo-upload-input");
+    const fileName = picker.querySelector(".photo-upload-file");
+
+    input.addEventListener("change", () => {
+      const file = input.files && input.files[0];
+      fileName.textContent = file ? file.name : fileName.dataset.emptyLabel;
+    });
+  });
+</script>
 {% endblock %}

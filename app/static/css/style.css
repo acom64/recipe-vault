@@ -77,6 +77,24 @@ main.container {
     gap: 0.5rem;
 }
 
+.recipe-filter-bar {
+    align-items: end;
+    display: grid;
+    gap: 0.75rem;
+    grid-template-columns: repeat(3, minmax(10rem, 1fr)) auto;
+}
+
+.recipe-filter-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.recipe-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+}
+
 .recipe-import-picker {
     align-items: center;
     background: #ffffff;
@@ -141,6 +159,33 @@ main.container {
     width: 100%;
 }
 
+.recipe-instructions {
+    overflow-wrap: anywhere;
+}
+
+.recipe-instructions > :last-child {
+    margin-bottom: 0;
+}
+
+.recipe-instructions h2,
+.recipe-instructions h3,
+.recipe-instructions h4,
+.recipe-instructions h5 {
+    font-size: 1.05rem;
+    margin-top: 1rem;
+}
+
+.recipe-instructions ul,
+.recipe-instructions ol {
+    padding-left: 1.35rem;
+}
+
+.recipe-instructions code {
+    background: #eef2f5;
+    border-radius: 0.35rem;
+    padding: 0.1rem 0.3rem;
+}
+
 .chef-photo-dropdown {
     width: fit-content;
 }
@@ -170,6 +215,64 @@ textarea {
     resize: vertical;
 }
 
+.markdown-toolbar {
+    background: #f8fafc;
+    border: 1px solid #d7dee7;
+    border-bottom: 0;
+    border-radius: 0.5rem 0.5rem 0 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    padding: 0.45rem;
+}
+
+.markdown-toolbar + textarea {
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+}
+
+.markdown-toolbar .btn {
+    align-items: center;
+    display: inline-flex;
+    font-weight: 700;
+    justify-content: center;
+    min-height: 36px;
+    min-width: 40px;
+    padding: 0.25rem 0.55rem;
+}
+
+.photo-upload-picker {
+    align-items: center;
+    background: #ffffff;
+    border: 1px solid #d7dee7;
+    border-radius: 0.75rem;
+    box-shadow: 0 0.15rem 0.45rem rgba(15, 23, 42, 0.08);
+    display: flex;
+    gap: 0.5rem;
+    min-height: 44px;
+    padding: 0.25rem;
+}
+
+.photo-upload-button {
+    align-items: center;
+    border-color: #c8d1dc;
+    display: inline-flex;
+    font-weight: 600;
+    justify-content: center;
+    margin-bottom: 0;
+    min-width: 7.25rem;
+    white-space: nowrap;
+}
+
+.photo-upload-file {
+    flex: 1 1 8rem;
+    min-width: 0;
+    overflow: hidden;
+    padding-inline: 0.25rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .shopping-checklist .list-group-item {
     align-items: center;
     display: flex;
@@ -187,6 +290,38 @@ textarea {
 .shopping-checklist label {
     flex: 1;
     line-height: 1.35;
+}
+
+.meal-plan-toggles {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.meal-plan-toggles .form-check {
+    align-items: center;
+    display: flex;
+    gap: 0.45rem;
+    margin-bottom: 0;
+}
+
+.meal-plan-grid {
+    display: grid;
+    gap: 0.75rem;
+    grid-template-columns: minmax(6rem, 0.7fr) repeat(3, minmax(10rem, 1fr));
+}
+
+.meal-plan-heading {
+    color: #5f6b7a;
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.meal-plan-day {
+    align-items: center;
+    display: flex;
+    font-weight: 700;
+    min-height: 44px;
 }
 
 @media (max-width: 768px) {
@@ -221,6 +356,14 @@ textarea {
     .recipe-library-actions,
     .recipe-import-form {
         width: 100%;
+    }
+
+    .recipe-filter-bar {
+        grid-template-columns: 1fr;
+    }
+
+    .recipe-filter-actions {
+        flex-direction: column;
     }
 
     .recipe-import-picker {
@@ -261,8 +404,43 @@ textarea {
         width: 100%;
     }
 
+    .markdown-toolbar .btn {
+        flex: 1 0 3rem;
+        width: auto;
+    }
+
+    .photo-upload-picker {
+        flex-direction: column;
+        padding: 0.5rem;
+    }
+
+    .photo-upload-button,
+    .photo-upload-file {
+        text-align: center;
+        width: 100%;
+    }
+
     .chef-photo-button {
         width: auto;
+    }
+
+    .meal-plan-toggles {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .meal-plan-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .meal-plan-heading {
+        display: none;
+    }
+
+    .meal-plan-day {
+        border-top: 1px solid #d7dee7;
+        margin-top: 0.25rem;
+        padding-top: 0.75rem;
     }
 }
 

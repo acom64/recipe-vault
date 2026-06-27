@@ -1,8 +1,10 @@
 import os
+import re
 from uuid import uuid4
 
 from flask import Response, current_app, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required, login_user, logout_user
+from markupsafe import Markup, escape
 from werkzeug.utils import secure_filename
 
 from .extensions import db
@@ -11,15 +13,143 @@ from .models import PlannedMeal, Recipe, User, format_ingredients, parse_ingredi
 
 def register_routes(app):
     allowed_image_extensions = {"jpg", "jpeg", "png", "gif", "webp"}
+    food_categories = [
+        "Sandwiches",
+        "Salads",
+        "Bowls",
+        "Soups",
+        "Pastas",
+        "Tacos",
+        "Stir-fries",
+        "Desserts",
+        "Drinks",
+    ]
+    meal_types = [
+        ("breakfast", "Breakfast"),
+        ("lunch", "Lunch"),
+        ("dinner", "Dinner"),
+        ("cocktails", "Cocktails"),
+        ("snacks", "Snacks"),
+    ]
+    meal_plan_slots = [
+        ("breakfast", "Breakfast"),
+        ("lunch", "Lunch"),
+        ("dinner", "Dinner"),
+    ]
     export_header = "Recipe Vault Export"
     recipe_start_marker = "--- Recipe ---"
     recipe_end_marker = "--- End Recipe ---"
     export_fields = {
         "Title:": "title",
         "Description:": "description",
+        "Food Category:": "food_category",
+        "Meal Type:": "meal_type",
         "Ingredients:": "ingredients",
         "Instructions:": "instructions",
     }
+
+    def meal_type_label(meal_type):
+        return dict(meal_types).get(meal_type, meal_type.title() if meal_type else "")
+
+    def render_inline_markdown(text):
+        rendered = str(escape(text))
+        rendered = re.sub(r"`([^`]+)`", r"<code>\1</code>", rendered)
+        rendered = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", rendered)
+        rendered = re.sub(r"\*([^*]+)\*", r"<em>\1</em>", rendered)
+        rendered = re.sub(
+            r"\[([^\]]+)\]\((https?://[^)\s]+)\)",
+            r'<a href="\2" rel="noopener noreferrer">\1</a>',
+            rendered,
+        )
+
+        return rendered
+
+    def render_markdown(text):
+        if not text:
+            return Markup("")
+
+        html = []
+        paragraph = []
+        list_type = None
+        alignment_class = None
+        alignment_classes = {
+            "left": "text-start",
+            "center": "text-center",
+            "right": "text-end",
+        }
+
+        def close_paragraph():
+            if paragraph:
+                html.append(f"<p>{render_inline_markdown(' '.join(paragraph))}</p>")
+                paragraph.clear()
+
+        def close_list():
+            nonlocal list_type
+            if list_type:
+                html.append(f"</{list_type}>")
+                list_type = None
+
+        def close_alignment():
+            nonlocal alignment_class
+            if alignment_class:
+                html.append("</div>")
+                alignment_class = None
+
+        for raw_line in text.splitlines():
+            line = raw_line.strip()
+
+            if not line:
+                close_paragraph()
+                close_list()
+                continue
+
+            alignment_start = re.match(r"^:::\s*(left|center|right)$", line)
+            if alignment_start:
+                close_paragraph()
+                close_list()
+                close_alignment()
+                alignment_class = alignment_classes[alignment_start.group(1)]
+                html.append(f'<div class="{alignment_class}">')
+                continue
+
+            if line == ":::":
+                close_paragraph()
+                close_list()
+                close_alignment()
+                continue
+
+            heading = re.match(r"^(#{1,4})\s+(.+)$", line)
+            unordered_item = re.match(r"^[-*]\s+(.+)$", line)
+            ordered_item = re.match(r"^\d+[.)]\s+(.+)$", line)
+
+            if heading:
+                close_paragraph()
+                close_list()
+                level = len(heading.group(1)) + 1
+                html.append(f"<h{level}>{render_inline_markdown(heading.group(2))}</h{level}>")
+                continue
+
+            if unordered_item or ordered_item:
+                close_paragraph()
+                next_list_type = "ul" if unordered_item else "ol"
+                item_text = (unordered_item or ordered_item).group(1)
+
+                if list_type != next_list_type:
+                    close_list()
+                    html.append(f"<{next_list_type}>")
+                    list_type = next_list_type
+
+                html.append(f"<li>{render_inline_markdown(item_text)}</li>")
+                continue
+
+            close_list()
+            paragraph.append(line)
+
+        close_paragraph()
+        close_list()
+        close_alignment()
+
+        return Markup("\n".join(html))
 
     def get_uploaded_image(field_name):
         image = request.files.get(field_name)
@@ -60,6 +190,10 @@ def register_routes(app):
                     recipe.title or "",
                     "Description:",
                     recipe.description or "",
+                    "Food Category:",
+                    recipe.food_category or "",
+                    "Meal Type:",
+                    recipe.meal_type or "",
                     "Ingredients:",
                     format_ingredients(recipe.ingredients),
                     "Instructions:",
@@ -83,6 +217,8 @@ def register_routes(app):
                 current_recipe = {
                     "title": [],
                     "description": [],
+                    "food_category": [],
+                    "meal_type": [],
                     "ingredients": [],
                     "instructions": [],
                 }
@@ -214,8 +350,42 @@ def register_routes(app):
     @app.route("/recipes")
     @login_required
     def recipes():
-        recipe_list = Recipe.query.filter_by(user_id=current_user.id).order_by(Recipe.title.asc()).all()
-        return render_template("recipes.html", recipes=recipe_list)
+        selected_food_category = request.args.get("food_category", "").strip()
+        selected_meal_type = request.args.get("meal_type", "").strip()
+        selected_sort = request.args.get("sort", "title")
+        query = Recipe.query.filter_by(user_id=current_user.id)
+
+        if selected_food_category:
+            query = query.filter(Recipe.food_category == selected_food_category)
+
+        if selected_meal_type:
+            query = query.filter(Recipe.meal_type == selected_meal_type)
+
+        sort_options = {
+            "title": Recipe.title.asc(),
+            "food_category": Recipe.food_category.asc(),
+            "meal_type": Recipe.meal_type.asc(),
+        }
+        recipe_list = query.order_by(sort_options.get(selected_sort, Recipe.title.asc()), Recipe.title.asc()).all()
+        user_food_categories = [
+            category
+            for (category,) in db.session.query(Recipe.food_category)
+            .filter(Recipe.user_id == current_user.id, Recipe.food_category.isnot(None), Recipe.food_category != "")
+            .distinct()
+            .order_by(Recipe.food_category.asc())
+            .all()
+        ]
+        all_food_categories = sorted(set(food_categories + user_food_categories))
+
+        return render_template(
+            "recipes.html",
+            recipes=recipe_list,
+            food_categories=all_food_categories,
+            meal_types=meal_types,
+            selected_food_category=selected_food_category,
+            selected_meal_type=selected_meal_type,
+            selected_sort=selected_sort,
+        )
 
     @app.route("/recipes/export")
     @login_required
@@ -249,6 +419,8 @@ def register_routes(app):
             recipe = Recipe(
                 title=recipe_data["title"],
                 description=recipe_data["description"],
+                food_category=recipe_data.get("food_category", ""),
+                meal_type=recipe_data.get("meal_type", ""),
                 instructions=recipe_data["instructions"],
                 user_id=current_user.id,
             )
@@ -269,22 +441,40 @@ def register_routes(app):
     @login_required
     def recipe_detail(recipe_id):
         recipe = Recipe.query.filter_by(id=recipe_id, user_id=current_user.id).first_or_404()
-        return render_template("recipe_details.html", recipe=recipe)
+        return render_template(
+            "recipe_details.html",
+            recipe=recipe,
+            rendered_instructions=render_markdown(recipe.instructions),
+        )
 
     @app.route("/recipes/new", methods=["GET", "POST"])
     @login_required
     def new_recipe():
         if request.method == "GET":
-            return render_template("recipe_form.html", recipe=None, ingredients_text="")
+            return render_template(
+                "recipe_form.html",
+                recipe=None,
+                ingredients_text="",
+                food_categories=food_categories,
+                meal_types=meal_types,
+            )
 
         title = request.form.get("title", "").strip()
         description = request.form.get("description", "").strip()
+        food_category = request.form.get("food_category", "").strip()
+        meal_type = request.form.get("meal_type", "").strip()
         ingredients_text = request.form.get("ingredients", "")
         instructions = request.form.get("instructions", "").strip()
 
         if not title or not ingredients_text.strip():
             flash("Please add a title and at least one ingredient.", "danger")
-            return render_template("recipe_form.html", recipe=None, ingredients_text=ingredients_text)
+            return render_template(
+                "recipe_form.html",
+                recipe=None,
+                ingredients_text=ingredients_text,
+                food_categories=food_categories,
+                meal_types=meal_types,
+            )
 
         photo = get_uploaded_image("photo")
         chef_photo = get_uploaded_image("chef_photo")
@@ -294,7 +484,13 @@ def register_routes(app):
 
         if upload_error:
             flash(upload_error, "danger")
-            return render_template("recipe_form.html", recipe=None, ingredients_text=ingredients_text)
+            return render_template(
+                "recipe_form.html",
+                recipe=None,
+                ingredients_text=ingredients_text,
+                food_categories=food_categories,
+                meal_types=meal_types,
+            )
 
         photo_filename = save_uploaded_image(photo)
         chef_photo_filename = save_uploaded_image(chef_photo)
@@ -302,6 +498,8 @@ def register_routes(app):
         recipe = Recipe(
             title=title,
             description=description,
+            food_category=food_category,
+            meal_type=meal_type,
             instructions=instructions,
             photo_filename=photo_filename,
             chef_photo_filename=chef_photo_filename,
@@ -327,10 +525,14 @@ def register_routes(app):
                 "recipe_form.html",
                 recipe=recipe,
                 ingredients_text=ingredients_text,
+                food_categories=food_categories,
+                meal_types=meal_types,
             )
 
         recipe.title = request.form.get("title", "").strip()
         recipe.description = request.form.get("description", "").strip()
+        recipe.food_category = request.form.get("food_category", "").strip()
+        recipe.meal_type = request.form.get("meal_type", "").strip()
         recipe.instructions = request.form.get("instructions", "").strip()
         photo = get_uploaded_image("photo")
         chef_photo = get_uploaded_image("chef_photo")
@@ -344,6 +546,8 @@ def register_routes(app):
                 "recipe_form.html",
                 recipe=recipe,
                 ingredients_text=request.form.get("ingredients", ""),
+                food_categories=food_categories,
+                meal_types=meal_types,
             )
 
         photo_filename = save_uploaded_image(photo)
@@ -396,26 +600,38 @@ def register_routes(app):
 
         if request.method == "POST":
             PlannedMeal.query.filter_by(user_id=current_user.id).delete()
+            selected_slots = ["dinner"]
+
+            if request.form.get("include_breakfast"):
+                selected_slots.insert(0, "breakfast")
+
+            if request.form.get("include_lunch"):
+                selected_slots.insert(-1, "lunch")
 
             for day in days:
-                recipe_id = request.form.get(day.lower(), "")
+                for meal_type in selected_slots:
+                    recipe_id = request.form.get(f"{meal_type}_{day.lower()}", "")
 
-                if not recipe_id:
-                    continue
+                    if not recipe_id:
+                        continue
 
-                planned_meal = PlannedMeal(
-                    day=day,
-                    recipe_id=recipe_id,
-                    user_id=current_user.id,
-                )
+                    planned_meal = PlannedMeal(
+                        day=day,
+                        meal_type=meal_type,
+                        recipe_id=recipe_id,
+                        user_id=current_user.id,
+                    )
 
-                db.session.add(planned_meal)
+                    db.session.add(planned_meal)
 
             db.session.commit()
             flash("Meal plan saved.", "success")
             return redirect(url_for("meal_plan"))
 
         planned_meals = PlannedMeal.query.filter_by(user_id=current_user.id).all()
+        planned_lookup = {(planned_meal.day, planned_meal.meal_type): planned_meal.recipe_id for planned_meal in planned_meals}
+        show_breakfast = any(planned_meal.meal_type == "breakfast" for planned_meal in planned_meals)
+        show_lunch = any(planned_meal.meal_type == "lunch" for planned_meal in planned_meals)
         planned_ingredients = build_shopping_list(current_user)
 
         return render_template(
@@ -423,6 +639,11 @@ def register_routes(app):
             recipes=recipes,
             days=days,
             planned_meals=planned_meals,
+            planned_lookup=planned_lookup,
+            meal_plan_slots=meal_plan_slots,
+            meal_type_label=meal_type_label,
+            show_breakfast=show_breakfast,
+            show_lunch=show_lunch,
             planned_ingredients=planned_ingredients,
         )
 

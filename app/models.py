@@ -49,6 +49,8 @@ class Recipe(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(100), nullable=False)
     description = db.Column(db.String(500))
+    food_category = db.Column(db.String(80))
+    meal_type = db.Column(db.String(40))
     photo_filename = db.Column(db.String(255))
     chef_photo_filename = db.Column(db.String(255))
     ingredients = db.relationship(
@@ -63,6 +65,7 @@ class Recipe(db.Model):
 class PlannedMeal(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     day = db.Column(db.String(10), nullable=False)
+    meal_type = db.Column(db.String(40), nullable=False, default="dinner")
     recipe_id = db.Column(db.Integer, db.ForeignKey("recipe.id"), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     recipe = db.relationship("Recipe")
@@ -89,19 +92,28 @@ def ensure_default_user():
     if inspector.has_table("recipe"):
         recipe_columns = {column["name"] for column in inspector.get_columns("recipe")}
         with db.engine.begin() as connection:
+            if "food_category" not in recipe_columns:
+                connection.execute(sa.text("ALTER TABLE recipe ADD COLUMN food_category VARCHAR(80)"))
+            if "meal_type" not in recipe_columns:
+                connection.execute(sa.text("ALTER TABLE recipe ADD COLUMN meal_type VARCHAR(40)"))
             if "photo_filename" not in recipe_columns:
                 connection.execute(sa.text("ALTER TABLE recipe ADD COLUMN photo_filename VARCHAR(255)"))
             if "chef_photo_filename" not in recipe_columns:
                 connection.execute(sa.text("ALTER TABLE recipe ADD COLUMN chef_photo_filename VARCHAR(255)"))
 
-    if inspector.has_table("planned_meal") and "user_id" not in {column["name"] for column in inspector.get_columns("planned_meal")}:
+    if inspector.has_table("planned_meal"):
+        planned_meal_columns = {column["name"] for column in inspector.get_columns("planned_meal")}
         with db.engine.begin() as connection:
-            connection.execute(sa.text("ALTER TABLE planned_meal ADD COLUMN user_id INTEGER"))
+            if "user_id" not in planned_meal_columns:
+                connection.execute(sa.text("ALTER TABLE planned_meal ADD COLUMN user_id INTEGER"))
+            if "meal_type" not in planned_meal_columns:
+                connection.execute(sa.text("ALTER TABLE planned_meal ADD COLUMN meal_type VARCHAR(40)"))
 
     if inspector.has_table("recipe"):
         Recipe.query.filter(Recipe.user_id.is_(None)).update({"user_id": user.id})
     if inspector.has_table("planned_meal"):
         PlannedMeal.query.filter(PlannedMeal.user_id.is_(None)).update({"user_id": user.id})
+        PlannedMeal.query.filter(PlannedMeal.meal_type.is_(None)).update({"meal_type": "dinner"})
 
     db.session.commit()
 

@@ -28,6 +28,17 @@
       <div class="recipe-detail-content">
         <h1 class="mb-1">{{ recipe.title }}</h1>
 
+        {% if recipe.food_category or recipe.meal_type %}
+          <div class="recipe-meta mt-2 mb-3">
+            {% if recipe.food_category %}
+              <span class="badge text-bg-light">{{ recipe.food_category }}</span>
+            {% endif %}
+            {% if recipe.meal_type %}
+              <span class="badge text-bg-secondary">{{ recipe.meal_type|replace("_", " ")|title }}</span>
+            {% endif %}
+          </div>
+        {% endif %}
+
         {% if recipe.description %}
           <p class="text-muted mb-4">{{ recipe.description }}</p>
         {% endif %}
@@ -49,7 +60,9 @@
 
         {% if recipe.instructions %}
           <h4 class="mt-4">Instructions</h4>
-          <p class="mb-0">{{ recipe.instructions }}</p>
+          <div class="recipe-instructions">
+            {{ rendered_instructions }}
+          </div>
         {% endif %}
 
         {% if recipe.chef_photo_filename %}

@@ -40,6 +40,46 @@
     </div>
 </div>
 
+<form class="recipe-filter-bar mb-4" method="GET">
+    <div>
+        <label for="food_category" class="form-label">Food Category</label>
+        <select id="food_category" name="food_category" class="form-select">
+            <option value="">All food categories</option>
+            {% for category in food_categories %}
+                <option value="{{ category }}" {% if selected_food_category == category %}selected{% endif %}>
+                    {{ category }}
+                </option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div>
+        <label for="meal_type" class="form-label">Meal Type</label>
+        <select id="meal_type" name="meal_type" class="form-select">
+            <option value="">All meal types</option>
+            {% for value, label in meal_types %}
+                <option value="{{ value }}" {% if selected_meal_type == value %}selected{% endif %}>
+                    {{ label }}
+                </option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div>
+        <label for="sort" class="form-label">Sort By</label>
+        <select id="sort" name="sort" class="form-select">
+            <option value="title" {% if selected_sort == "title" %}selected{% endif %}>Title</option>
+            <option value="food_category" {% if selected_sort == "food_category" %}selected{% endif %}>Food Category</option>
+            <option value="meal_type" {% if selected_sort == "meal_type" %}selected{% endif %}>Meal Type</option>
+        </select>
+    </div>
+
+    <div class="recipe-filter-actions">
+        <button type="submit" class="btn btn-outline-primary">Apply</button>
+        <a class="btn btn-outline-secondary" href="{{ url_for('recipes') }}">Reset</a>
+    </div>
+</form>
+
 {% if recipes %}
 <div class="row g-4">
     {% for recipe in recipes %}
@@ -53,6 +93,16 @@
                     alt="{{ recipe.title }}">
                 {% endif %}
                 <div class="card-body">
+                    {% if recipe.food_category or recipe.meal_type %}
+                    <div class="recipe-meta mb-2">
+                        {% if recipe.food_category %}
+                            <span class="badge text-bg-light">{{ recipe.food_category }}</span>
+                        {% endif %}
+                        {% if recipe.meal_type %}
+                            <span class="badge text-bg-secondary">{{ recipe.meal_type|replace("_", " ")|title }}</span>
+                        {% endif %}
+                    </div>
+                    {% endif %}
                     <h5 class="card-title">{{ recipe.title }}</h5>
                     <p class="card-text text-muted">
                         {{ recipe.description or "No description added." }}
