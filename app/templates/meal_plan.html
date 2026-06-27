@@ -6,10 +6,9 @@
 <h1 class="mb-4">Weekly Meal Planner</h1>
 
 <div class="row g-4">
-  <!-- Left side: form -->
   <div class="col-md-6">
     <div class="card shadow-sm">
-      <div class="card-body">
+      <div class="card-body p-3 p-md-4">
         <h4 class="mb-3">Choose Meals</h4>
 
         <form method="POST">
@@ -17,11 +16,7 @@
             <div class="mb-3">
               <label for="{{ day|lower }}" class="form-label">{{ day }}</label>
 
-              <select
-                id="{{ day|lower }}"
-                name="{{ day|lower }}"
-                class="form-select"
-              >
+              <select id="{{ day|lower }}" name="{{ day|lower }}" class="form-select">
                 <option value="" selected>Select a recipe</option>
 
                 {% for recipe in recipes %}
@@ -31,7 +26,7 @@
             </div>
           {% endfor %}
 
-          <button type="submit" class="btn btn-primary">
+          <button type="submit" class="btn btn-primary btn-lg w-100 w-md-auto">
             Save Meal Plan
           </button>
         </form>
@@ -39,10 +34,9 @@
     </div>
   </div>
 
-  <!-- Right side: current saved plan -->
   <div class="col-md-6">
     <div class="card shadow-sm">
-      <div class="card-body">
+      <div class="card-body p-3 p-md-4">
         <h4 class="mb-3">Current Plan</h4>
 
         {% if planned_meals %}
@@ -60,10 +54,10 @@
     </div>
 
     <div class="card shadow-sm mt-4">
-      <div class="card-body">
+      <div class="card-body p-3 p-md-4">
         <div class="d-flex flex-column flex-sm-row gap-2 justify-content-between align-items-sm-center mb-3">
           <h4 class="mb-0">Shopping List</h4>
-          <a class="btn btn-outline-primary btn-sm" href="{{ url_for('shopping_list') }}">
+          <a class="btn btn-outline-primary" href="{{ url_for('shopping_list') }}">
             Open Shopping Checklist
           </a>
         </div>

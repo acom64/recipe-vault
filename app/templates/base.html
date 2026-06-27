@@ -15,17 +15,34 @@
         <div class="container">
             <a class="navbar-brand fw-bold" href="/">Recipe Vault</a>
 
-            <div class="navbar-nav">
+            <div class="navbar-nav align-items-center">
                 <a class="nav-link" href="/">Home</a>
-                <a class="nav-link" href="/recipes">Recipes</a>
-                <a class="nav-link" href="/recipes/new">Add Recipe</a>
+                {% if current_user.is_authenticated %}
+                <a class="nav-link" href="{{ url_for('recipes') }}">Recipes</a>
+                <a class="nav-link" href="{{ url_for('new_recipe') }}">Add Recipe</a>
                 <a class="nav-link" href="{{ url_for('meal_plan') }}">Meal Plan</a>
                 <a class="nav-link" href="{{ url_for('shopping_list') }}">Shopping List</a>
+                <span class="nav-link text-light">{{ current_user.username }}</span>
+                <a class="nav-link btn btn-outline-light btn-sm ms-1" href="{{ url_for('logout') }}">Logout</a>
+                {% else %}
+                <a class="nav-link btn btn-outline-light btn-sm me-2" href="{{ url_for('login') }}">Login</a>
+                <a class="nav-link btn btn-primary btn-sm" href="{{ url_for('register') }}">Register</a>
+                {% endif %}
             </div>
         </div>
     </nav>
 
     <main class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="mb-4">
+            {% for category, message in messages %}
+            <div class="alert alert-{{ category }} mb-2">{{ message }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% endwith %}
+
         {% block content %}
         {% endblock %}
     </main>

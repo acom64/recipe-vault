@@ -1,16 +1,40 @@
+import os
+
 from flask import Flask
-from .routes import register_routes
+from flask_login import LoginManager
+
 from .extensions import db
+from .models import User, ensure_default_user
+from .routes import register_routes
+
+login_manager = LoginManager()
+login_manager.login_view = "login"
 
 
-def create_app():
+@login_manager.user_loader
+def load_user(user_id):
+    return db.session.get(User, int(user_id))
+
+
+def create_app(test_config=None):
     app = Flask(__name__)
-    
-    app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///recipes.db"
-    app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-    
+
+    app.config.update(
+        SECRET_KEY=os.environ.get("SECRET_KEY", "dev-secret-key"),
+        SQLALCHEMY_DATABASE_URI=os.environ.get("DATABASE_URL", "sqlite:///recipes.db"),
+        SQLALCHEMY_TRACK_MODIFICATIONS=False,
+    )
+
+    if test_config:
+        app.config.update(test_config)
+
     db.init_app(app)
-    
+    login_manager.init_app(app)
+
+    with app.app_context():
+        db.create_all()
+        ensure_default_user()
+
     register_routes(app)
 
-    return(app)
+    return app

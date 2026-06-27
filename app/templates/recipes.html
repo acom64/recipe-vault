@@ -3,19 +3,20 @@
 {% block title %}Recipes{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-4">
     <div>
         <h1 class="mb-1">Recipes</h1>
         <p class="text-muted mb-0">Browse your saved meals and ingredients.</p>
     </div>
 
-    <a class="btn btn-primary" href="/recipes/new">Add Recipe</a>
+    <a class="btn btn-primary" href="{{ url_for('new_recipe') }}">Add Recipe</a>
 </div>
 
+{% if recipes %}
 <div class="row g-4">
     {% for recipe in recipes %}
     <div class="col-md-6 col-lg-4">
-        <a href="/recipes/{{ recipe.id }}" class="text-decoration-none text-dark">
+        <a href="{{ url_for('recipe_detail', recipe_id=recipe.id) }}" class="text-decoration-none text-dark">
             <div class="card recipe-card h-100 shadow-sm">
                 <div class="card-body">
                     <h5 class="card-title">{{ recipe.title }}</h5>
@@ -28,4 +29,11 @@
     </div>
     {% endfor %}
 </div>
+{% else %}
+<div class="card shadow-sm">
+    <div class="card-body">
+        <p class="mb-0">You do not have any recipes yet. Add one to get started.</p>
+    </div>
+</div>
+{% endif %}
 {% endblock %}
