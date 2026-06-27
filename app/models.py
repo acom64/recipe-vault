@@ -49,6 +49,8 @@ class Recipe(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(100), nullable=False)
     description = db.Column(db.String(500))
+    photo_filename = db.Column(db.String(255))
+    chef_photo_filename = db.Column(db.String(255))
     ingredients = db.relationship(
         "Ingredient",
         backref="recipe",
@@ -83,6 +85,14 @@ def ensure_default_user():
     if inspector.has_table("recipe") and "user_id" not in {column["name"] for column in inspector.get_columns("recipe")}:
         with db.engine.begin() as connection:
             connection.execute(sa.text("ALTER TABLE recipe ADD COLUMN user_id INTEGER"))
+
+    if inspector.has_table("recipe"):
+        recipe_columns = {column["name"] for column in inspector.get_columns("recipe")}
+        with db.engine.begin() as connection:
+            if "photo_filename" not in recipe_columns:
+                connection.execute(sa.text("ALTER TABLE recipe ADD COLUMN photo_filename VARCHAR(255)"))
+            if "chef_photo_filename" not in recipe_columns:
+                connection.execute(sa.text("ALTER TABLE recipe ADD COLUMN chef_photo_filename VARCHAR(255)"))
 
     if inspector.has_table("planned_meal") and "user_id" not in {column["name"] for column in inspector.get_columns("planned_meal")}:
         with db.engine.begin() as connection:

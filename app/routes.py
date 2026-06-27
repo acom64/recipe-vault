@@ -1,11 +1,125 @@
-from flask import flash, redirect, render_template, request, url_for
+import os
+from uuid import uuid4
+
+from flask import Response, current_app, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required, login_user, logout_user
+from werkzeug.utils import secure_filename
 
 from .extensions import db
 from .models import PlannedMeal, Recipe, User, format_ingredients, parse_ingredients
 
 
 def register_routes(app):
+    allowed_image_extensions = {"jpg", "jpeg", "png", "gif", "webp"}
+    export_header = "Recipe Vault Export"
+    recipe_start_marker = "--- Recipe ---"
+    recipe_end_marker = "--- End Recipe ---"
+    export_fields = {
+        "Title:": "title",
+        "Description:": "description",
+        "Ingredients:": "ingredients",
+        "Instructions:": "instructions",
+    }
+
+    def get_uploaded_image(field_name):
+        image = request.files.get(field_name)
+
+        if not image or not image.filename:
+            return None
+
+        return image
+
+    def validate_uploaded_image(image):
+        if not image:
+            return None
+
+        extension = image.filename.rsplit(".", 1)[-1].lower() if "." in image.filename else ""
+        if extension not in allowed_image_extensions:
+            return "Please upload images as JPG, PNG, GIF, or WebP files."
+
+        return None
+
+    def save_uploaded_image(image):
+        if not image:
+            return None
+
+        original_filename = secure_filename(image.filename)
+        filename = f"{uuid4().hex}_{original_filename}"
+        image.save(os.path.join(current_app.config["UPLOAD_FOLDER"], filename))
+
+        return filename
+
+    def build_recipe_export(recipe_list):
+        lines = [export_header, ""]
+
+        for recipe in recipe_list:
+            lines.extend(
+                [
+                    recipe_start_marker,
+                    "Title:",
+                    recipe.title or "",
+                    "Description:",
+                    recipe.description or "",
+                    "Ingredients:",
+                    format_ingredients(recipe.ingredients),
+                    "Instructions:",
+                    recipe.instructions or "",
+                    recipe_end_marker,
+                    "",
+                ]
+            )
+
+        return "\n".join(lines)
+
+    def parse_recipe_export(export_text):
+        recipes_to_import = []
+        current_recipe = None
+        current_field = None
+
+        for raw_line in export_text.splitlines():
+            line = raw_line.rstrip()
+
+            if line == recipe_start_marker:
+                current_recipe = {
+                    "title": [],
+                    "description": [],
+                    "ingredients": [],
+                    "instructions": [],
+                }
+                current_field = None
+                continue
+
+            if line == recipe_end_marker:
+                if current_recipe is not None:
+                    recipes_to_import.append(
+                        {
+                            key: "\n".join(value).strip()
+                            for key, value in current_recipe.items()
+                        }
+                    )
+                current_recipe = None
+                current_field = None
+                continue
+
+            if current_recipe is None:
+                continue
+
+            if line in export_fields:
+                current_field = export_fields[line]
+                continue
+
+            if current_field:
+                current_recipe[current_field].append(line)
+
+        if current_recipe is not None:
+            recipes_to_import.append(
+                {
+                    key: "\n".join(value).strip()
+                    for key, value in current_recipe.items()
+                }
+            )
+
+        return recipes_to_import
 
     def build_shopping_list(user):
         planned_meals = PlannedMeal.query.filter_by(user_id=user.id).all()
@@ -103,6 +217,54 @@ def register_routes(app):
         recipe_list = Recipe.query.filter_by(user_id=current_user.id).order_by(Recipe.title.asc()).all()
         return render_template("recipes.html", recipes=recipe_list)
 
+    @app.route("/recipes/export")
+    @login_required
+    def export_recipes():
+        recipe_list = Recipe.query.filter_by(user_id=current_user.id).order_by(Recipe.title.asc()).all()
+        export_text = build_recipe_export(recipe_list)
+
+        return Response(
+            export_text,
+            mimetype="text/plain",
+            headers={"Content-Disposition": "attachment; filename=recipe-vault-export.txt"},
+        )
+
+    @app.route("/recipes/import", methods=["POST"])
+    @login_required
+    def import_recipes():
+        export_file = request.files.get("recipe_export")
+
+        if not export_file or not export_file.filename:
+            flash("Please choose a recipe export text file to import.", "danger")
+            return redirect(url_for("recipes"))
+
+        export_text = export_file.read().decode("utf-8-sig", errors="replace")
+        imported_recipe_data = parse_recipe_export(export_text)
+        imported_recipes = []
+
+        for recipe_data in imported_recipe_data:
+            if not recipe_data["title"] or not recipe_data["ingredients"]:
+                continue
+
+            recipe = Recipe(
+                title=recipe_data["title"],
+                description=recipe_data["description"],
+                instructions=recipe_data["instructions"],
+                user_id=current_user.id,
+            )
+            recipe.ingredients = parse_ingredients(recipe_data["ingredients"])
+            imported_recipes.append(recipe)
+
+        if not imported_recipes:
+            flash("No valid recipes were found in that file.", "danger")
+            return redirect(url_for("recipes"))
+
+        db.session.add_all(imported_recipes)
+        db.session.commit()
+        flash(f"Imported {len(imported_recipes)} recipes.", "success")
+
+        return redirect(url_for("recipes"))
+
     @app.route("/recipes/<int:recipe_id>")
     @login_required
     def recipe_detail(recipe_id):
@@ -124,10 +286,25 @@ def register_routes(app):
             flash("Please add a title and at least one ingredient.", "danger")
             return render_template("recipe_form.html", recipe=None, ingredients_text=ingredients_text)
 
+        photo = get_uploaded_image("photo")
+        chef_photo = get_uploaded_image("chef_photo")
+        photo_error = validate_uploaded_image(photo)
+        chef_photo_error = validate_uploaded_image(chef_photo)
+        upload_error = photo_error or chef_photo_error
+
+        if upload_error:
+            flash(upload_error, "danger")
+            return render_template("recipe_form.html", recipe=None, ingredients_text=ingredients_text)
+
+        photo_filename = save_uploaded_image(photo)
+        chef_photo_filename = save_uploaded_image(chef_photo)
+
         recipe = Recipe(
             title=title,
             description=description,
             instructions=instructions,
+            photo_filename=photo_filename,
+            chef_photo_filename=chef_photo_filename,
             user_id=current_user.id,
         )
         recipe.ingredients = parse_ingredients(ingredients_text)
@@ -155,6 +332,28 @@ def register_routes(app):
         recipe.title = request.form.get("title", "").strip()
         recipe.description = request.form.get("description", "").strip()
         recipe.instructions = request.form.get("instructions", "").strip()
+        photo = get_uploaded_image("photo")
+        chef_photo = get_uploaded_image("chef_photo")
+        photo_error = validate_uploaded_image(photo)
+        chef_photo_error = validate_uploaded_image(chef_photo)
+        upload_error = photo_error or chef_photo_error
+
+        if upload_error:
+            flash(upload_error, "danger")
+            return render_template(
+                "recipe_form.html",
+                recipe=recipe,
+                ingredients_text=request.form.get("ingredients", ""),
+            )
+
+        photo_filename = save_uploaded_image(photo)
+        chef_photo_filename = save_uploaded_image(chef_photo)
+
+        if photo_filename:
+            recipe.photo_filename = photo_filename
+
+        if chef_photo_filename:
+            recipe.chef_photo_filename = chef_photo_filename
 
         recipe.ingredients.clear()
 

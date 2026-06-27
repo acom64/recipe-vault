@@ -23,6 +23,7 @@ def create_app(test_config=None):
         SECRET_KEY=os.environ.get("SECRET_KEY", "dev-secret-key"),
         SQLALCHEMY_DATABASE_URI=os.environ.get("DATABASE_URL", "sqlite:///recipes.db"),
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
+        UPLOAD_FOLDER=os.path.join(app.static_folder, "uploads"),
     )
 
     if test_config:
@@ -32,6 +33,7 @@ def create_app(test_config=None):
     login_manager.init_app(app)
 
     with app.app_context():
+        os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
         db.create_all()
         ensure_default_user()
 

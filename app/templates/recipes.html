@@ -9,7 +9,35 @@
         <p class="text-muted mb-0">Browse your saved meals and ingredients.</p>
     </div>
 
-    <a class="btn btn-primary" href="{{ url_for('new_recipe') }}">Add Recipe</a>
+    <div class="recipe-library-actions">
+        <a class="btn btn-outline-secondary" href="{{ url_for('export_recipes') }}">Export Recipes</a>
+        <form
+            action="{{ url_for('import_recipes') }}"
+            method="POST"
+            enctype="multipart/form-data"
+            class="recipe-import-form">
+            <button type="button" class="btn btn-outline-primary recipe-import-toggle" aria-expanded="false">
+                Import
+            </button>
+            <div class="recipe-import-picker" hidden>
+                <label class="btn btn-light recipe-import-browse">
+                    Browse
+                    <input
+                        type="file"
+                        class="visually-hidden recipe-import-input"
+                        name="recipe_export"
+                        accept=".txt,text/plain"
+                        aria-label="Import recipe export text file"
+                        required>
+                </label>
+                <span class="recipe-import-file text-muted" aria-live="polite">No file selected</span>
+                <button type="submit" class="btn btn-outline-primary recipe-import-submit" disabled>
+                    Upload
+                </button>
+            </div>
+        </form>
+        <a class="btn btn-primary" href="{{ url_for('new_recipe') }}">Add Recipe</a>
+    </div>
 </div>
 
 {% if recipes %}
@@ -18,6 +46,12 @@
     <div class="col-md-6 col-lg-4">
         <a href="{{ url_for('recipe_detail', recipe_id=recipe.id) }}" class="text-decoration-none text-dark">
             <div class="card recipe-card h-100 shadow-sm">
+                {% if recipe.photo_filename %}
+                <img
+                    src="{{ url_for('static', filename='uploads/' ~ recipe.photo_filename) }}"
+                    class="card-img-top recipe-card-photo"
+                    alt="{{ recipe.title }}">
+                {% endif %}
                 <div class="card-body">
                     <h5 class="card-title">{{ recipe.title }}</h5>
                     <p class="card-text text-muted">
@@ -36,4 +70,30 @@
     </div>
 </div>
 {% endif %}
+
+<script>
+    document.querySelectorAll(".recipe-import-form").forEach((form) => {
+        const toggle = form.querySelector(".recipe-import-toggle");
+        const picker = form.querySelector(".recipe-import-picker");
+        const input = form.querySelector(".recipe-import-input");
+        const fileName = form.querySelector(".recipe-import-file");
+        const submit = form.querySelector(".recipe-import-submit");
+
+        toggle.addEventListener("click", () => {
+            const isHidden = picker.hasAttribute("hidden");
+            picker.toggleAttribute("hidden", !isHidden);
+            toggle.setAttribute("aria-expanded", String(isHidden));
+
+            if (isHidden) {
+                input.focus();
+            }
+        });
+
+        input.addEventListener("change", () => {
+            const file = input.files && input.files[0];
+            fileName.textContent = file ? file.name : "No file selected";
+            submit.disabled = !file;
+        });
+    });
+</script>
 {% endblock %}

@@ -46,6 +46,11 @@ main.container {
     transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
+.recipe-card-photo {
+    aspect-ratio: 4 / 3;
+    object-fit: cover;
+}
+
 .recipe-card:hover {
     transform: translateY(-3px);
     box-shadow: 0 .5rem 1rem rgba(0,0,0,.15) !important;
@@ -61,6 +66,99 @@ main.container {
 }
 
 .recipe-actions {
+    width: 100%;
+}
+
+.recipe-library-actions,
+.recipe-import-form {
+    align-items: stretch;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.recipe-import-picker {
+    align-items: center;
+    background: #ffffff;
+    border: 1px solid #d7dee7;
+    border-radius: 0.75rem;
+    box-shadow: 0 0.15rem 0.45rem rgba(15, 23, 42, 0.08);
+    display: flex;
+    gap: 0.5rem;
+    min-height: 44px;
+    padding: 0.25rem;
+}
+
+.recipe-import-picker[hidden] {
+    display: none;
+}
+
+.recipe-import-browse {
+    align-items: center;
+    border-color: #c8d1dc;
+    display: inline-flex;
+    font-weight: 600;
+    justify-content: center;
+    margin-bottom: 0;
+    min-width: 6rem;
+    white-space: nowrap;
+}
+
+.recipe-import-file {
+    flex: 1 1 10rem;
+    max-width: 15rem;
+    min-width: 0;
+    overflow: hidden;
+    padding-inline: 0.25rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.recipe-import-submit {
+    white-space: nowrap;
+}
+
+.recipe-detail-layout {
+    align-items: flex-start;
+    display: flex;
+    gap: 1.5rem;
+}
+
+.recipe-detail-content {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.recipe-detail-photo-wrap {
+    flex: 0 0 min(32%, 18rem);
+}
+
+.recipe-detail-photo {
+    aspect-ratio: 4 / 3;
+    border-radius: 0.85rem;
+    display: block;
+    object-fit: cover;
+    width: 100%;
+}
+
+.chef-photo-dropdown {
+    width: fit-content;
+}
+
+.chef-photo-button {
+    min-height: 34px;
+    padding: 0.25rem 0.55rem;
+}
+
+.chef-photo-menu {
+    max-width: min(20rem, calc(100vw - 2rem));
+    width: 20rem;
+}
+
+.chef-photo {
+    border-radius: 0.75rem;
+    display: block;
+    height: auto;
     width: 100%;
 }
 
@@ -120,6 +218,28 @@ textarea {
         width: 100%;
     }
 
+    .recipe-library-actions,
+    .recipe-import-form {
+        width: 100%;
+    }
+
+    .recipe-import-picker {
+        flex-direction: column;
+        padding: 0.5rem;
+        width: 100%;
+    }
+
+    .recipe-import-browse,
+    .recipe-import-submit {
+        width: 100%;
+    }
+
+    .recipe-import-file {
+        max-width: 100%;
+        text-align: center;
+        width: 100%;
+    }
+
     .d-flex.justify-content-between,
     .d-flex.flex-column.flex-sm-row {
         align-items: stretch !important;
@@ -129,6 +249,20 @@ textarea {
     .gap-2,
     .gap-3 {
         gap: 0.75rem !important;
+    }
+
+    .recipe-detail-layout {
+        flex-direction: column-reverse;
+    }
+
+    .recipe-detail-photo-wrap {
+        flex-basis: auto;
+        max-width: 22rem;
+        width: 100%;
+    }
+
+    .chef-photo-button {
+        width: auto;
     }
 }
 
