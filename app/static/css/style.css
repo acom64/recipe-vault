@@ -57,6 +57,7 @@ main.container {
     font-weight: 600;
     gap: 0.35rem;
     width: fit-content;
+    justify-content: center;
 }
 
 .recipe-actions {
