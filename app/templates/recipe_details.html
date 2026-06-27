@@ -4,11 +4,12 @@
 
 {% block content %}
 <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-3">
-  <a href="{{ url_for('recipes') }}" class="text-decoration-none">
-    ← Back to Recipes
+  <a href="{{ url_for('recipes') }}" class="btn btn-outline-secondary recipe-back-link">
+    <span aria-hidden="true">&larr;</span>
+    Back to Recipes
   </a>
 
-  <div class="d-flex flex-column flex-sm-row gap-2 w-100 w-md-auto">
+  <div class="d-flex flex-column flex-sm-row gap-2 recipe-actions">
     <a href="{{ url_for('edit_recipe', recipe_id=recipe.id) }}" class="btn btn-outline-primary">
       Edit
     </a>
