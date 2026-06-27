@@ -21,7 +21,7 @@
                 id="{{ day|lower }}"
                 name="{{ day|lower }}"
                 class="form-select"
-                >
+              >
                 <option value="" selected>Select a recipe</option>
 
                 {% for recipe in recipes %}
@@ -49,7 +49,7 @@
           {% for planned_meal in planned_meals %}
             <p class="mb-2">
               <strong>{{ planned_meal.day }}</strong>
-              —
+              -
               {{ planned_meal.recipe.title }}
             </p>
           {% endfor %}
@@ -58,26 +58,35 @@
         {% endif %}
       </div>
     </div>
-    <div class="card shadow-sm">
+
+    <div class="card shadow-sm mt-4">
       <div class="card-body">
-        <h4 class="mb-3">Shopping List</h4>
-        <ul>
-            {% for ingredient in planned_ingredients%}
+        <div class="d-flex flex-column flex-sm-row gap-2 justify-content-between align-items-sm-center mb-3">
+          <h4 class="mb-0">Shopping List</h4>
+          <a class="btn btn-outline-primary btn-sm" href="{{ url_for('shopping_list') }}">
+            Open Shopping Checklist
+          </a>
+        </div>
 
-          <li class="mb-2">
+        {% if planned_ingredients %}
+          <ul class="mb-0">
+            {% for ingredient in planned_ingredients %}
+              <li class="mb-2">
+                {% if ingredient.quantity is not none %}
+                  {{ ingredient.quantity }}
+                {% endif %}
 
-            {%if ingredient.quantity%}
-              {{ingredient.quantity}}
-            {%endif%}
+                {% if ingredient.unit %}
+                  {{ ingredient.unit }}
+                {% endif %}
 
-            {%if ingredient.unit%}
-              {{ingredient.unit}}
-            {%endif%}
-
-            {{ingredient.name}}
-          </li>
-            {%endfor%}
-        </ul>
+                {{ ingredient.name }}
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="text-muted mb-0">No shopping items yet.</p>
+        {% endif %}
       </div>
     </div>
   </div>

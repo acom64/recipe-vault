@@ -18,3 +18,22 @@ body {
 textarea {
     resize: vertical;
 }
+
+.shopping-checklist .list-group-item {
+    align-items: center;
+    display: flex;
+    gap: 0.9rem;
+    padding: 1rem;
+}
+
+.shopping-checklist .form-check-input {
+    flex: 0 0 auto;
+    height: 1.35rem;
+    margin-top: 0;
+    width: 1.35rem;
+}
+
+.shopping-checklist label {
+    flex: 1;
+    line-height: 1.35;
+}

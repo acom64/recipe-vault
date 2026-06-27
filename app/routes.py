@@ -5,6 +5,32 @@ from .extensions import db
 
 def register_routes(app):
 
+    def build_shopping_list():
+        planned_meals = PlannedMeal.query.all()
+        grouped_ingredients = {}
+
+        for planned_meal in planned_meals:
+            for ingredient in planned_meal.recipe.ingredients:
+                unit = ingredient.unit or ""
+                key = (ingredient.name.lower(), unit.lower())
+
+                if key in grouped_ingredients:
+                    existing_ingredient = grouped_ingredients[key]
+
+                    if (
+                        existing_ingredient["quantity"] is not None
+                        and ingredient.quantity is not None
+                    ):
+                        existing_ingredient["quantity"] += ingredient.quantity
+                else:
+                    grouped_ingredients[key] = {
+                        "name": ingredient.name,
+                        "quantity": ingredient.quantity,
+                        "unit": unit,
+                    }
+
+        return grouped_ingredients.values()
+
     @app.route("/")
     def home():
         return render_template("index.html")
@@ -33,7 +59,6 @@ def register_routes(app):
         ingredients = parse_ingredients(request.form["ingredients"])
         instructions = request.form["instructions"].strip()
 
-     
         recipe = Recipe(
             title=title,
             description=description,
@@ -82,9 +107,9 @@ def register_routes(app):
 
         return redirect(url_for("recipes"))
 
-    @app.route("/meal-plan", methods=["GET","POST"])
+    @app.route("/meal-plan", methods=["GET", "POST"])
     def meal_plan():
-      days = [
+        days = [
             "Monday",
             "Tuesday",
             "Wednesday",
@@ -94,50 +119,46 @@ def register_routes(app):
             "Sunday",
         ]
 
-      recipes = Recipe.query.all()
-      
-      if request.method == "POST":
-        PlannedMeal.query.delete()
-        for day in days:
-          recipe_id = request.form.get(day.lower(),"")
-          if not recipe_id:
-            continue
-          planned_meal = PlannedMeal(
-            day=day,
-            recipe_id=recipe_id,
-          )
-          
-          db.session.add(planned_meal)
+        recipes = Recipe.query.all()
 
-        db.session.commit()
-        
-        return redirect(url_for("meal_plan"))
-       
-      planned_meals = PlannedMeal.query.all()
+        if request.method == "POST":
+            PlannedMeal.query.delete()
 
-      planned_ingredients = []
-      grouped_ingredients = {}
+            for day in days:
+                recipe_id = request.form.get(day.lower(), "")
 
-      for planned_meal in planned_meals:
-          for ingredient in planned_meal.recipe.ingredients:
-              key = (ingredient.name.lower(), ingredient.unit.lower())
+                if not recipe_id:
+                    continue
 
-              if key in grouped_ingredients:
-                  existing_ingredient = grouped_ingredients[key]
+                planned_meal = PlannedMeal(
+                    day=day,
+                    recipe_id=recipe_id,
+                )
 
-                  if existing_ingredient.quantity and ingredient.quantity:
-                      existing_ingredient.quantity += ingredient.quantity
-              else:
-                  grouped_ingredients[key] = ingredient
+                db.session.add(planned_meal)
 
-      planned_ingredients = grouped_ingredients.values()
+            db.session.commit()
 
-      return render_template(
-              "meal_plan.html",
-              recipes = recipes,
-              days = days,
-              planned_meals = planned_meals,
-              planned_ingredients = planned_ingredients
-          )
+            return redirect(url_for("meal_plan"))
+
+        planned_meals = PlannedMeal.query.all()
+        planned_ingredients = build_shopping_list()
+
+        return render_template(
+            "meal_plan.html",
+            recipes=recipes,
+            days=days,
+            planned_meals=planned_meals,
+            planned_ingredients=planned_ingredients,
+        )
+
+    @app.route("/shopping-list")
+    def shopping_list():
+        planned_ingredients = build_shopping_list()
+
+        return render_template(
+            "shopping_list.html",
+            planned_ingredients=planned_ingredients,
+        )
 
     return app
