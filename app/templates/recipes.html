@@ -93,14 +93,14 @@
                     alt="{{ recipe.title }}">
                 {% endif %}
                 <div class="card-body">
-                    {% if recipe.food_category or recipe.meal_type %}
+                    {% if recipe.food_category or recipe.meal_type_labels %}
                     <div class="recipe-meta mb-2">
                         {% if recipe.food_category %}
                             <span class="badge text-bg-light">{{ recipe.food_category }}</span>
                         {% endif %}
-                        {% if recipe.meal_type %}
-                            <span class="badge text-bg-secondary">{{ recipe.meal_type|replace("_", " ")|title }}</span>
-                        {% endif %}
+                        {% for meal_type in recipe.meal_type_labels %}
+                            <span class="badge text-bg-secondary">{{ meal_type }}</span>
+                        {% endfor %}
                     </div>
                     {% endif %}
                     <h5 class="card-title">{{ recipe.title }}</h5>

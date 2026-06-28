@@ -28,14 +28,14 @@
       <div class="recipe-detail-content">
         <h1 class="mb-1">{{ recipe.title }}</h1>
 
-        {% if recipe.food_category or recipe.meal_type %}
+        {% if recipe.food_category or recipe.meal_type_labels %}
           <div class="recipe-meta mt-2 mb-3">
             {% if recipe.food_category %}
               <span class="badge text-bg-light">{{ recipe.food_category }}</span>
             {% endif %}
-            {% if recipe.meal_type %}
-              <span class="badge text-bg-secondary">{{ recipe.meal_type|replace("_", " ")|title }}</span>
-            {% endif %}
+            {% for meal_type in recipe.meal_type_labels %}
+              <span class="badge text-bg-secondary">{{ meal_type }}</span>
+            {% endfor %}
           </div>
         {% endif %}
 

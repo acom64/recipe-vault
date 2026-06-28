@@ -95,6 +95,27 @@ main.container {
     gap: 0.35rem;
 }
 
+.meal-type-picker {
+    display: grid;
+    gap: 0.5rem;
+}
+
+.meal-type-row {
+    display: grid;
+    gap: 0.5rem;
+    grid-template-columns: minmax(0, 1fr) 44px;
+}
+
+.meal-type-add,
+.meal-type-remove {
+    align-items: center;
+    display: inline-flex;
+    font-size: 1.15rem;
+    font-weight: 700;
+    justify-content: center;
+    padding-inline: 0;
+}
+
 .recipe-import-picker {
     align-items: center;
     background: #ffffff;

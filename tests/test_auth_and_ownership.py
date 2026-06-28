@@ -190,6 +190,31 @@ class AuthAndOwnershipTests(unittest.TestCase):
         self.assertIn(b"Lunch", recipes_response.data)
         self.assertNotIn(b"Egg Bowl", recipes_response.data)
 
+    def test_recipe_can_have_multiple_meal_types(self):
+        self.register_and_login("greer")
+
+        response = self.client.post(
+            "/recipes/new",
+            data={
+                "title": "Snack Plate",
+                "description": "Flexible",
+                "food_category": "Bowls",
+                "meal_type": ["lunch", "snacks"],
+                "ingredients": "1 cup hummus",
+                "instructions": "Plate everything",
+            },
+            follow_redirects=True,
+        )
+        recipe = Recipe.query.filter_by(title="Snack Plate").one()
+
+        self.assertEqual(recipe.meal_type, "lunch,snacks")
+        self.assertIn(b"Lunch", response.data)
+        self.assertIn(b"Snacks", response.data)
+
+        filtered_response = self.client.get("/recipes?meal_type=snacks")
+
+        self.assertIn(b"Snack Plate", filtered_response.data)
+
     def test_recipe_instructions_render_markdown_safely(self):
         self.register_and_login("ivy")
 
@@ -239,6 +264,11 @@ class AuthAndOwnershipTests(unittest.TestCase):
         self.assertIn(b"data-format=\"bullet\"", response.data)
         self.assertIn(b"data-format=\"number\"", response.data)
         self.assertIn(b"data-format=\"center\"", response.data)
+        self.assertIn(b'instructions.addEventListener("keydown"', response.data)
+        self.assertIn(b"Number(number) + 1", response.data)
+        self.assertIn(b'cursor, cursor, "end"', response.data)
+        self.assertIn(b"class=\"btn btn-outline-primary meal-type-add\"", response.data)
+        self.assertIn(b"createMealTypeRow", response.data)
 
     def test_recipe_form_has_polished_photo_upload_controls(self):
         self.register_and_login("kai")

@@ -51,6 +51,35 @@ def register_routes(app):
     def meal_type_label(meal_type):
         return dict(meal_types).get(meal_type, meal_type.title() if meal_type else "")
 
+    def parse_meal_types(meal_type_text):
+        if not meal_type_text:
+            return []
+
+        return [meal_type.strip() for meal_type in meal_type_text.split(",") if meal_type.strip()]
+
+    def serialize_meal_types(selected_meal_types):
+        valid_meal_types = {value for value, _label in meal_types}
+        unique_meal_types = []
+
+        for meal_type in selected_meal_types:
+            if meal_type in valid_meal_types and meal_type not in unique_meal_types:
+                unique_meal_types.append(meal_type)
+
+        return ",".join(unique_meal_types)
+
+    def get_selected_meal_types():
+        return serialize_meal_types(request.form.getlist("meal_type"))
+
+    def meal_type_labels(meal_type_text):
+        return [meal_type_label(meal_type) for meal_type in parse_meal_types(meal_type_text)]
+
+    def attach_recipe_display_data(recipe_list):
+        for recipe in recipe_list:
+            recipe.meal_type_values = parse_meal_types(recipe.meal_type)
+            recipe.meal_type_labels = meal_type_labels(recipe.meal_type)
+
+        return recipe_list
+
     def render_inline_markdown(text):
         rendered = str(escape(text))
         rendered = re.sub(r"`([^`]+)`", r"<code>\1</code>", rendered)
@@ -364,14 +393,23 @@ def register_routes(app):
             query = query.filter(Recipe.food_category == selected_food_category)
 
         if selected_meal_type:
-            query = query.filter(Recipe.meal_type == selected_meal_type)
+            query = query.filter(
+                db.or_(
+                    Recipe.meal_type == selected_meal_type,
+                    Recipe.meal_type.like(f"{selected_meal_type},%"),
+                    Recipe.meal_type.like(f"%,{selected_meal_type}"),
+                    Recipe.meal_type.like(f"%,{selected_meal_type},%"),
+                )
+            )
 
         sort_options = {
             "title": Recipe.title.asc(),
             "food_category": Recipe.food_category.asc(),
             "meal_type": Recipe.meal_type.asc(),
         }
-        recipe_list = query.order_by(sort_options.get(selected_sort, Recipe.title.asc()), Recipe.title.asc()).all()
+        recipe_list = attach_recipe_display_data(
+            query.order_by(sort_options.get(selected_sort, Recipe.title.asc()), Recipe.title.asc()).all()
+        )
         user_food_categories = [
             category
             for (category,) in db.session.query(Recipe.food_category)
@@ -425,7 +463,7 @@ def register_routes(app):
                 title=recipe_data["title"],
                 description=recipe_data["description"],
                 food_category=recipe_data.get("food_category", ""),
-                meal_type=recipe_data.get("meal_type", ""),
+                meal_type=serialize_meal_types(parse_meal_types(recipe_data.get("meal_type", ""))),
                 instructions=recipe_data["instructions"],
                 user_id=current_user.id,
             )
@@ -446,6 +484,7 @@ def register_routes(app):
     @login_required
     def recipe_detail(recipe_id):
         recipe = Recipe.query.filter_by(id=recipe_id, user_id=current_user.id).first_or_404()
+        attach_recipe_display_data([recipe])
         return render_template(
             "recipe_details.html",
             recipe=recipe,
@@ -462,12 +501,13 @@ def register_routes(app):
                 ingredients_text="",
                 food_categories=food_categories,
                 meal_types=meal_types,
+                selected_meal_types=[],
             )
 
         title = request.form.get("title", "").strip()
         description = request.form.get("description", "").strip()
         food_category = request.form.get("food_category", "").strip()
-        meal_type = request.form.get("meal_type", "").strip()
+        meal_type = get_selected_meal_types()
         ingredients_text = request.form.get("ingredients", "")
         instructions = request.form.get("instructions", "").strip()
 
@@ -479,6 +519,7 @@ def register_routes(app):
                 ingredients_text=ingredients_text,
                 food_categories=food_categories,
                 meal_types=meal_types,
+                selected_meal_types=parse_meal_types(meal_type),
             )
 
         photo = get_uploaded_image("photo")
@@ -495,6 +536,7 @@ def register_routes(app):
                 ingredients_text=ingredients_text,
                 food_categories=food_categories,
                 meal_types=meal_types,
+                selected_meal_types=parse_meal_types(meal_type),
             )
 
         photo_filename = save_uploaded_image(photo)
@@ -525,6 +567,7 @@ def register_routes(app):
 
         if request.method == "GET":
             ingredients_text = format_ingredients(recipe.ingredients)
+            selected_meal_types = parse_meal_types(recipe.meal_type)
 
             return render_template(
                 "recipe_form.html",
@@ -532,12 +575,13 @@ def register_routes(app):
                 ingredients_text=ingredients_text,
                 food_categories=food_categories,
                 meal_types=meal_types,
+                selected_meal_types=selected_meal_types,
             )
 
         recipe.title = request.form.get("title", "").strip()
         recipe.description = request.form.get("description", "").strip()
         recipe.food_category = request.form.get("food_category", "").strip()
-        recipe.meal_type = request.form.get("meal_type", "").strip()
+        recipe.meal_type = get_selected_meal_types()
         recipe.instructions = request.form.get("instructions", "").strip()
         photo = get_uploaded_image("photo")
         chef_photo = get_uploaded_image("chef_photo")
@@ -553,6 +597,7 @@ def register_routes(app):
                 ingredients_text=request.form.get("ingredients", ""),
                 food_categories=food_categories,
                 meal_types=meal_types,
+                selected_meal_types=parse_meal_types(recipe.meal_type),
             )
 
         photo_filename = save_uploaded_image(photo)

@@ -47,15 +47,31 @@
         </div>
 
         <div class="col-md-6">
-          <label for="meal_type" class="form-label">Meal Type</label>
-          <select class="form-select" name="meal_type" id="meal_type">
-            <option value="">Select a meal type</option>
-            {% for value, label in meal_types %}
-              <option value="{{ value }}" {% if recipe and recipe.meal_type == value %}selected{% endif %}>
-                {{ label }}
-              </option>
+          <label for="meal_type_0" class="form-label">Meal Type</label>
+          <div class="meal-type-picker" data-meal-type-picker>
+            {% set selected_values = selected_meal_types if selected_meal_types else [""] %}
+            {% for selected_value in selected_values %}
+              <div class="meal-type-row">
+                <select class="form-select" name="meal_type" id="meal_type_{{ loop.index0 }}">
+                  <option value="">Select a meal type</option>
+                  {% for value, label in meal_types %}
+                    <option value="{{ value }}" {% if selected_value == value %}selected{% endif %}>
+                      {{ label }}
+                    </option>
+                  {% endfor %}
+                </select>
+                {% if loop.first %}
+                  <button type="button" class="btn btn-outline-primary meal-type-add" aria-label="Add another meal type">
+                    +
+                  </button>
+                {% else %}
+                  <button type="button" class="btn btn-outline-secondary meal-type-remove" aria-label="Remove meal type">
+                    &times;
+                  </button>
+                {% endif %}
+              </div>
             {% endfor %}
-          </select>
+          </div>
         </div>
       </div>
 
@@ -143,6 +159,7 @@
 <script>
   const instructions = document.querySelector("#instructions");
   const toolbar = document.querySelector(".markdown-toolbar");
+  const mealTypePicker = document.querySelector("[data-meal-type-picker]");
 
   const linePrefix = (text, prefixer) => {
     const lines = (text || "Step").split("\n");
@@ -182,6 +199,84 @@
     }
 
     formatSelection(button.dataset.format);
+  });
+
+  const refreshMealTypeIds = () => {
+    mealTypePicker.querySelectorAll("select").forEach((select, index) => {
+      select.id = `meal_type_${index}`;
+    });
+  };
+
+  const createMealTypeRow = () => {
+    const firstRow = mealTypePicker.querySelector(".meal-type-row");
+    const row = firstRow.cloneNode(true);
+    const select = row.querySelector("select");
+    const button = row.querySelector("button");
+
+    select.value = "";
+    button.className = "btn btn-outline-secondary meal-type-remove";
+    button.setAttribute("aria-label", "Remove meal type");
+    button.textContent = "\u00d7";
+
+    return row;
+  };
+
+  mealTypePicker.addEventListener("click", (event) => {
+    const addButton = event.target.closest(".meal-type-add");
+    const removeButton = event.target.closest(".meal-type-remove");
+
+    if (addButton) {
+      mealTypePicker.appendChild(createMealTypeRow());
+      refreshMealTypeIds();
+      mealTypePicker.querySelector(".meal-type-row:last-child select").focus();
+      return;
+    }
+
+    if (removeButton) {
+      removeButton.closest(".meal-type-row").remove();
+      refreshMealTypeIds();
+    }
+  });
+
+  instructions.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" || event.shiftKey || event.ctrlKey || event.altKey || event.metaKey) {
+      return;
+    }
+
+    const cursor = instructions.selectionStart;
+
+    if (cursor !== instructions.selectionEnd) {
+      return;
+    }
+
+    const value = instructions.value;
+    const lineStart = value.lastIndexOf("\n", cursor - 1) + 1;
+    const currentLine = value.slice(lineStart, cursor);
+    const numberedItem = currentLine.match(/^(\s*)(\d+)([.)])\s+(.*)$/);
+    const bulletItem = currentLine.match(/^(\s*)([-*])\s+(.*)$/);
+
+    if (!numberedItem && !bulletItem) {
+      return;
+    }
+
+    event.preventDefault();
+
+    if (numberedItem) {
+      const [, indent, number, marker, text] = numberedItem;
+      if (text.trim()) {
+        instructions.setRangeText(`\n${indent}${Number(number) + 1}${marker} `, cursor, cursor, "end");
+      } else {
+        instructions.setRangeText("", lineStart, cursor, "end");
+      }
+      return;
+    }
+
+    const [, indent, marker, text] = bulletItem;
+    if (text.trim()) {
+      instructions.setRangeText(`\n${indent}${marker} `, cursor, cursor, "end");
+    } else {
+      instructions.setRangeText("", lineStart, cursor, "end");
+    }
   });
 
   document.querySelectorAll(".photo-upload-picker").forEach((picker) => {
