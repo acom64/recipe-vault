@@ -326,23 +326,55 @@ textarea {
     margin-bottom: 0;
 }
 
-.meal-plan-grid {
+.meal-plan-list {
     display: grid;
-    gap: 0.75rem;
-    grid-template-columns: minmax(6rem, 0.7fr) repeat(3, minmax(10rem, 1fr));
+    gap: 1rem;
 }
 
-.meal-plan-heading {
-    color: #5f6b7a;
-    font-size: 0.9rem;
-    font-weight: 700;
+.meal-plan-day-group {
+    border-top: 1px solid #d7dee7;
+    display: grid;
+    gap: 0.65rem;
+    padding-top: 1rem;
+}
+
+.meal-plan-day-group:first-child {
+    border-top: 0;
+    padding-top: 0;
 }
 
 .meal-plan-day {
-    align-items: center;
-    display: flex;
+    font-size: 1rem;
     font-weight: 700;
-    min-height: 44px;
+    margin-bottom: 0;
+}
+
+.meal-plan-day-slots {
+    display: grid;
+    gap: 0.65rem;
+}
+
+.meal-plan-day-slots .meal-slot {
+    align-items: center;
+    display: grid;
+    gap: 0.5rem;
+    grid-template-columns: 5.5rem minmax(0, 1fr);
+}
+
+.meal-plan-day-slots .meal-slot[hidden] {
+    display: none;
+}
+
+.meal-plan-day-slots .form-label {
+    color: #5f6b7a;
+    font-size: 0.9rem;
+    font-weight: 700;
+    margin-bottom: 0;
+}
+
+.meal-plan-day-slots .form-select {
+    min-width: 0;
+    width: 100%;
 }
 
 @media (max-width: 768px) {
@@ -450,18 +482,9 @@ textarea {
         gap: 0.5rem;
     }
 
-    .meal-plan-grid {
+    .meal-plan-day-slots .meal-slot {
+        align-items: stretch;
         grid-template-columns: 1fr;
-    }
-
-    .meal-plan-heading {
-        display: none;
-    }
-
-    .meal-plan-day {
-        border-top: 1px solid #d7dee7;
-        margin-top: 0.25rem;
-        padding-top: 0.75rem;
     }
 }
 

@@ -21,7 +21,7 @@
                 id="include_breakfast"
                 name="include_breakfast"
                 data-meal-slot="breakfast"
-                {% if show_breakfast %}checked{% endif %}>
+                >
               <label class="form-check-label" for="include_breakfast">Plan breakfasts</label>
             </div>
 
@@ -33,37 +33,34 @@
                 id="include_lunch"
                 name="include_lunch"
                 data-meal-slot="lunch"
-                {% if show_lunch %}checked{% endif %}>
+                >
               <label class="form-check-label" for="include_lunch">Plan lunches</label>
             </div>
           </div>
 
-          <div class="meal-plan-grid">
-            <div class="meal-plan-heading meal-plan-day-heading">Day</div>
-            {% for slot, label in meal_plan_slots %}
-              <div class="meal-plan-heading meal-slot meal-slot-{{ slot }}" {% if slot == "breakfast" and not show_breakfast or slot == "lunch" and not show_lunch %}hidden{% endif %}>
-                {{ label }}
-              </div>
-            {% endfor %}
-
+          <div class="meal-plan-list">
             {% for day in days %}
-              <div class="meal-plan-day">{{ day }}</div>
+              <section class="meal-plan-day-group" aria-labelledby="meal-plan-day-{{ day|lower }}">
+                <h5 id="meal-plan-day-{{ day|lower }}" class="meal-plan-day">{{ day }}</h5>
 
-              {% for slot, label in meal_plan_slots %}
-                {% set selected_recipe_id = planned_lookup.get((day, slot)) %}
-                <div class="meal-slot meal-slot-{{ slot }}" {% if slot == "breakfast" and not show_breakfast or slot == "lunch" and not show_lunch %}hidden{% endif %}>
-                  <label for="{{ slot }}_{{ day|lower }}" class="form-label d-md-none">{{ label }}</label>
-                  <select id="{{ slot }}_{{ day|lower }}" name="{{ slot }}_{{ day|lower }}" class="form-select">
-                    <option value="" selected>Select a recipe</option>
+                <div class="meal-plan-day-slots">
+                  {% for slot, label in meal_plan_slots %}
+                    {% set selected_recipe_id = planned_lookup.get((day, slot)) %}
+                    <div class="meal-slot meal-slot-{{ slot }}" {% if slot == "breakfast" or slot == "lunch" %}hidden{% endif %}>
+                      <label for="{{ slot }}_{{ day|lower }}" class="form-label">{{ label }}</label>
+                      <select id="{{ slot }}_{{ day|lower }}" name="{{ slot }}_{{ day|lower }}" class="form-select">
+                        <option value="" selected>Select a recipe</option>
 
-                    {% for recipe in recipes %}
-                      <option value="{{ recipe.id }}" {% if selected_recipe_id == recipe.id %}selected{% endif %}>
-                        {{ recipe.title }}
-                      </option>
-                    {% endfor %}
-                  </select>
+                        {% for recipe in recipes %}
+                          <option value="{{ recipe.id }}" {% if selected_recipe_id == recipe.id %}selected{% endif %}>
+                            {{ recipe.title }}
+                          </option>
+                        {% endfor %}
+                      </select>
+                    </div>
+                  {% endfor %}
                 </div>
-              {% endfor %}
+              </section>
             {% endfor %}
           </div>
 
