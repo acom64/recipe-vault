@@ -120,7 +120,7 @@ def register_routes(app):
 
             heading = re.match(r"^(#{1,4})\s+(.+)$", line)
             unordered_item = re.match(r"^[-*]\s+(.+)$", line)
-            ordered_item = re.match(r"^\d+[.)]\s+(.+)$", line)
+            ordered_item = re.match(r"^(\d+)[.)]\s+(.+)$", line)
 
             if heading:
                 close_paragraph()
@@ -132,11 +132,16 @@ def register_routes(app):
             if unordered_item or ordered_item:
                 close_paragraph()
                 next_list_type = "ul" if unordered_item else "ol"
-                item_text = (unordered_item or ordered_item).group(1)
+                item_text = unordered_item.group(1) if unordered_item else ordered_item.group(2)
 
                 if list_type != next_list_type:
                     close_list()
-                    html.append(f"<{next_list_type}>")
+                    if ordered_item:
+                        start = ordered_item.group(1)
+                        start_attr = f' start="{start}"' if start != "1" else ""
+                        html.append(f"<{next_list_type}{start_attr}>")
+                    else:
+                        html.append(f"<{next_list_type}>")
                     list_type = next_list_type
 
                 html.append(f"<li>{render_inline_markdown(item_text)}</li>")

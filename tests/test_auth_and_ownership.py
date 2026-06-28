@@ -212,6 +212,24 @@ class AuthAndOwnershipTests(unittest.TestCase):
         self.assertIn(b"&lt;script&gt;alert(&#39;x&#39;)&lt;/script&gt;", response.data)
         self.assertNotIn(b"<script>alert('x')</script>", response.data)
 
+    def test_numbered_instruction_steps_keep_their_numbers(self):
+        self.register_and_login("jordan")
+
+        response = self.client.post(
+            "/recipes/new",
+            data={
+                "title": "Tea",
+                "description": "",
+                "ingredients": "1 cup water",
+                "instructions": "1. Boil water\n\n2. Steep tea\n\n3. Serve",
+            },
+            follow_redirects=True,
+        )
+
+        self.assertIn(b"<ol>", response.data)
+        self.assertIn(b'<ol start="2">', response.data)
+        self.assertIn(b'<ol start="3">', response.data)
+
     def test_recipe_form_has_instruction_formatting_toolbar(self):
         self.register_and_login("jules")
 
