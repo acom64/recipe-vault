@@ -31,7 +31,8 @@ def register_routes(app):
         ("cocktails", "Cocktails"),
         ("snacks", "Snacks"),
         ("appetizers", "Appetizers"),
-        ("sides", "Sides")
+        ("sides", "Sides"),
+        ("desserts", "Desserts")
     ]
     meal_plan_slots = [
         ("breakfast", "Breakfast"),
