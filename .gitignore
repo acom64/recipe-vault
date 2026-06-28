@@ -13,6 +13,7 @@ __pycache__/
 # Runtime files
 gunicorn.log
 gunicorn.pid
+instance/*.db
 app/static/uploads/*
 
 # VS Code

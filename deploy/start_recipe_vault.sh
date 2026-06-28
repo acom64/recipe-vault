@@ -15,12 +15,24 @@ LOG_FILE="$APP_DIR/gunicorn.log"
 PYTHON_BIN="$VENV_DIR/bin/python"
 PIP_BIN="$VENV_DIR/bin/pip"
 GUNICORN_BIN="$VENV_DIR/bin/gunicorn"
+DB_FILE="$APP_DIR/instance/recipes.db"
+DB_BACKUP=""
 
 cd "$APP_DIR"
 
+if [ -f "$DB_FILE" ]; then
+    DB_BACKUP="$(mktemp "$APP_DIR/instance/recipes.db.deploy.XXXXXX")"
+    cp "$DB_FILE" "$DB_BACKUP"
+fi
+
 if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     git fetch "$GIT_REMOTE"
-    git checkout --detach "$GIT_REF"
+    git checkout --force --detach "$GIT_REF"
+fi
+
+if [ -n "$DB_BACKUP" ]; then
+    mkdir -p "$APP_DIR/instance"
+    mv "$DB_BACKUP" "$DB_FILE"
 fi
 
 if [ ! -x "$PYTHON_BIN" ]; then
