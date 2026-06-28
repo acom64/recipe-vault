@@ -21,7 +21,6 @@ def register_routes(app):
         "Pastas",
         "Tacos",
         "Stir-fries",
-        "Desserts",
         "Drinks",
     ]
     meal_types = [
