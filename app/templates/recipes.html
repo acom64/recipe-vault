@@ -42,6 +42,17 @@
 
 <form class="recipe-filter-bar mb-4" method="GET">
     <div>
+        <label for="q" class="form-label">Search</label>
+        <input
+            id="q"
+            name="q"
+            class="form-control"
+            type="search"
+            value="{{ search_query }}"
+            placeholder="Recipe, ingredient, notes">
+    </div>
+
+    <div>
         <label for="food_category" class="form-label">Food Category</label>
         <select id="food_category" name="food_category" class="form-select">
             <option value="">All food categories</option>
@@ -84,44 +95,111 @@
 <div class="row g-4">
     {% for recipe in recipes %}
     <div class="col-md-6 col-lg-4">
-        <a href="{{ url_for('recipe_detail', recipe_id=recipe.id) }}" class="text-decoration-none text-dark">
-            <div class="card recipe-card h-100 shadow-sm">
-                {% if recipe.photo_filename %}
-                <img
-                    src="{{ url_for('static', filename='uploads/' ~ recipe.photo_filename) }}"
-                    class="card-img-top recipe-card-photo"
-                    alt="{{ recipe.title }}">
-                {% endif %}
-                <div class="card-body">
-                    {% if recipe.food_category or recipe.meal_type_labels %}
-                    <div class="recipe-meta mb-2">
-                        {% if recipe.food_category %}
-                            <span class="badge text-bg-light">{{ recipe.food_category }}</span>
-                        {% endif %}
-                        {% for meal_type in recipe.meal_type_labels %}
-                            <span class="badge text-bg-secondary">{{ meal_type }}</span>
-                        {% endfor %}
-                    </div>
+        <div class="card recipe-card h-100 shadow-sm">
+            {% if recipe.photo_filename %}
+            <img
+                src="{{ url_for('static', filename='uploads/' ~ recipe.photo_filename) }}"
+                class="card-img-top recipe-card-photo"
+                alt="{{ recipe.title }}">
+            {% endif %}
+            <div class="card-body">
+                {% if recipe.food_category or recipe.meal_type_labels %}
+                <div class="recipe-meta mb-2">
+                    {% if recipe.food_category %}
+                        <span class="badge text-bg-light">{{ recipe.food_category }}</span>
                     {% endif %}
-                    <h5 class="card-title">{{ recipe.title }}</h5>
-                    <p class="card-text text-muted">
-                        {{ recipe.description or "No description added." }}
-                    </p>
+                    {% for meal_type in recipe.meal_type_labels %}
+                        <span class="badge text-bg-secondary">{{ meal_type }}</span>
+                    {% endfor %}
                 </div>
+                {% endif %}
+                <h5 class="card-title">
+                    <a href="{{ url_for('recipe_detail', recipe_id=recipe.id) }}" class="recipe-card-link">
+                        {{ recipe.title }}
+                    </a>
+                </h5>
+                <p class="card-text text-muted">
+                    {{ recipe.description or "No description added." }}
+                </p>
             </div>
-        </a>
+            <div class="card-footer bg-white border-0 pt-0">
+                <button
+                    type="button"
+                    class="btn btn-outline-primary w-100 recipe-plan-button"
+                    data-bs-toggle="modal"
+                    data-bs-target="#addToMealPlanModal"
+                    data-recipe-id="{{ recipe.id }}"
+                    data-recipe-title="{{ recipe.title }}">
+                    Add to Meal Plan
+                </button>
+            </div>
+        </div>
     </div>
     {% endfor %}
 </div>
 {% else %}
 <div class="card shadow-sm">
     <div class="card-body">
-        <p class="mb-0">You do not have any recipes yet. Add one to get started.</p>
+        <p class="mb-0">
+            {% if search_query or selected_food_category or selected_meal_type %}
+                No recipes match those filters.
+            {% else %}
+                You do not have any recipes yet. Add one to get started.
+            {% endif %}
+        </p>
     </div>
 </div>
 {% endif %}
 
+<div class="modal fade" id="addToMealPlanModal" tabindex="-1" aria-labelledby="addToMealPlanLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <form class="modal-content" method="POST" action="{{ url_for('add_recipe_to_meal_plan_draft') }}">
+            <div class="modal-header">
+                <h2 class="modal-title fs-5" id="addToMealPlanLabel">Add to Meal Plan</h2>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" name="recipe_id" id="meal_plan_recipe_id">
+                <input type="hidden" name="next" value="{{ request.full_path }}">
+                <p class="text-muted mb-3" id="meal_plan_recipe_title"></p>
+
+                <div class="mb-3">
+                    <label for="meal_plan_day" class="form-label">Day</label>
+                    <select id="meal_plan_day" name="day" class="form-select" required>
+                        {% for day in days %}
+                            <option value="{{ day|lower }}">{{ day }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div>
+                    <label for="meal_plan_meal_type" class="form-label">Meal</label>
+                    <select id="meal_plan_meal_type" name="meal_type" class="form-select" required>
+                        {% for value, label in meal_plan_slots %}
+                            <option value="{{ value }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-primary">Add</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script>
+    const addToMealPlanModal = document.querySelector("#addToMealPlanModal");
+
+    if (addToMealPlanModal) {
+        addToMealPlanModal.addEventListener("show.bs.modal", (event) => {
+            const button = event.relatedTarget;
+            addToMealPlanModal.querySelector("#meal_plan_recipe_id").value = button.dataset.recipeId;
+            addToMealPlanModal.querySelector("#meal_plan_recipe_title").textContent = button.dataset.recipeTitle;
+        });
+    }
+
     document.querySelectorAll(".recipe-import-form").forEach((form) => {
         const toggle = form.querySelector(".recipe-import-toggle");
         const picker = form.querySelector(".recipe-import-picker");

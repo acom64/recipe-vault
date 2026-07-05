@@ -190,6 +190,39 @@ class AuthAndOwnershipTests(unittest.TestCase):
         self.assertIn(b"Lunch", recipes_response.data)
         self.assertNotIn(b"Egg Bowl", recipes_response.data)
 
+    def test_recipes_can_be_searched(self):
+        self.register_and_login("gloria")
+        self.client.post(
+            "/recipes/new",
+            data={
+                "title": "Lemon Pasta",
+                "description": "Bright dinner",
+                "food_category": "Pastas",
+                "meal_type": "dinner",
+                "ingredients": "1 cup noodles\n1 lemon",
+                "instructions": "Boil and toss",
+            },
+            follow_redirects=True,
+        )
+        self.client.post(
+            "/recipes/new",
+            data={
+                "title": "Bean Bowl",
+                "description": "Lunch",
+                "food_category": "Bowls",
+                "meal_type": "lunch",
+                "ingredients": "1 cup beans",
+                "instructions": "Warm",
+            },
+            follow_redirects=True,
+        )
+
+        response = self.client.get("/recipes?q=lemon")
+
+        self.assertIn(b"Lemon Pasta", response.data)
+        self.assertNotIn(b"Bean Bowl", response.data)
+        self.assertIn(b'name="q"', response.data)
+
     def test_recipe_can_have_multiple_meal_types(self):
         self.register_and_login("greer")
 
@@ -360,6 +393,76 @@ class AuthAndOwnershipTests(unittest.TestCase):
         self.assertIn(b"Breakfast:", response.data)
         self.assertIn(b"Lunch:", response.data)
         self.assertIn(b"Dinner:", response.data)
+
+    def test_meal_plan_draft_survives_navigation_without_saving(self):
+        self.register_and_login("morgan")
+        self.client.post(
+            "/recipes/new",
+            data={
+                "title": "Waffles",
+                "description": "",
+                "food_category": "Bowls",
+                "meal_type": "breakfast",
+                "ingredients": "1 cup flour",
+                "instructions": "",
+            },
+            follow_redirects=True,
+        )
+        recipe = Recipe.query.filter_by(title="Waffles").one()
+
+        draft_response = self.client.post(
+            "/meal-plan/draft",
+            data={
+                "include_breakfast": "1",
+                "breakfast_monday": str(recipe.id),
+            },
+        )
+        self.assertEqual(draft_response.status_code, 200)
+        self.assertEqual(PlannedMeal.query.count(), 0)
+
+        self.client.get("/recipes")
+        meal_plan_response = self.client.get("/meal-plan")
+
+        self.assertIn(b"Your unsaved meal plan draft has been restored.", meal_plan_response.data)
+        self.assertIn(b'id="include_breakfast"', meal_plan_response.data)
+        self.assertIn(f'value="{recipe.id}" selected'.encode(), meal_plan_response.data)
+        self.assertEqual(PlannedMeal.query.count(), 0)
+
+    def test_recipe_list_can_add_recipe_to_meal_plan_draft(self):
+        self.register_and_login("nina")
+        self.client.post(
+            "/recipes/new",
+            data={
+                "title": "Tacos",
+                "description": "",
+                "food_category": "Tacos",
+                "meal_type": "dinner",
+                "ingredients": "1 tortilla",
+                "instructions": "",
+            },
+            follow_redirects=True,
+        )
+        recipe = Recipe.query.filter_by(title="Tacos").one()
+
+        recipes_response = self.client.get("/recipes")
+        self.assertIn(b"Add to Meal Plan", recipes_response.data)
+        self.assertIn(b"addToMealPlanModal", recipes_response.data)
+
+        add_response = self.client.post(
+            "/meal-plan/draft/add",
+            data={
+                "recipe_id": str(recipe.id),
+                "day": "tuesday",
+                "meal_type": "dinner",
+                "next": "/recipes",
+            },
+            follow_redirects=True,
+        )
+        meal_plan_response = self.client.get("/meal-plan")
+
+        self.assertIn(b"Added Tacos to your meal plan draft.", add_response.data)
+        self.assertIn(f'value="{recipe.id}" selected'.encode(), meal_plan_response.data)
+        self.assertEqual(PlannedMeal.query.count(), 0)
 
 
 if __name__ == "__main__":

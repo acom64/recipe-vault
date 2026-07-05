@@ -2,13 +2,13 @@ import os
 import re
 from uuid import uuid4
 
-from flask import Response, current_app, flash, redirect, render_template, request, url_for
+from flask import Response, current_app, flash, jsonify, redirect, render_template, request, session, url_for
 from flask_login import current_user, login_required, login_user, logout_user
 from markupsafe import Markup, escape
 from werkzeug.utils import secure_filename
 
 from .extensions import db
-from .models import PlannedMeal, Recipe, User, format_ingredients, parse_ingredients
+from .models import Ingredient, PlannedMeal, Recipe, User, format_ingredients, parse_ingredients
 
 
 def register_routes(app):
@@ -81,6 +81,84 @@ def register_routes(app):
             recipe.meal_type_labels = meal_type_labels(recipe.meal_type)
 
         return recipe_list
+
+    def meal_plan_draft_key():
+        return f"meal_plan_draft_{current_user.id}"
+
+    def empty_meal_plan_draft():
+        return {
+            "include_breakfast": False,
+            "include_lunch": False,
+            "meals": {},
+        }
+
+    def get_meal_plan_draft():
+        draft = session.get(meal_plan_draft_key())
+
+        if not isinstance(draft, dict):
+            return None
+
+        meals = draft.get("meals", {})
+
+        if not isinstance(meals, dict):
+            meals = {}
+
+        return {
+            "include_breakfast": bool(draft.get("include_breakfast")),
+            "include_lunch": bool(draft.get("include_lunch")),
+            "meals": {
+                key: str(value)
+                for key, value in meals.items()
+                if isinstance(key, str) and str(value).isdigit()
+            },
+        }
+
+    def save_meal_plan_draft(draft):
+        session[meal_plan_draft_key()] = draft
+        session.modified = True
+
+    def clear_meal_plan_draft():
+        session.pop(meal_plan_draft_key(), None)
+        session.modified = True
+
+    def build_meal_plan_draft_from_form(days):
+        draft = {
+            "include_breakfast": bool(request.form.get("include_breakfast")),
+            "include_lunch": bool(request.form.get("include_lunch")),
+            "meals": {},
+        }
+        valid_slots = {slot for slot, _label in meal_plan_slots}
+        valid_days = {day.lower() for day in days}
+
+        for field_name, recipe_id in request.form.items():
+            if not recipe_id or not recipe_id.isdigit() or "_" not in field_name:
+                continue
+
+            slot, day_key = field_name.split("_", 1)
+
+            if slot in valid_slots and day_key in valid_days:
+                draft["meals"][field_name] = recipe_id
+
+        return draft
+
+    def build_planned_lookup_from_draft(draft, recipe_ids):
+        planned_lookup = {}
+
+        if not draft:
+            return planned_lookup
+
+        for field_name, recipe_id in draft["meals"].items():
+            if "_" not in field_name:
+                continue
+
+            slot, day_key = field_name.split("_", 1)
+
+            if int(recipe_id) not in recipe_ids:
+                continue
+
+            planned_lookup[(day_key.title(), slot)] = int(recipe_id)
+
+        return planned_lookup
 
     def render_inline_markdown(text):
         rendered = str(escape(text))
@@ -386,10 +464,22 @@ def register_routes(app):
     @app.route("/recipes")
     @login_required
     def recipes():
+        search_query = request.args.get("q", "").strip()
         selected_food_category = request.args.get("food_category", "").strip()
         selected_meal_type = request.args.get("meal_type", "").strip()
         selected_sort = request.args.get("sort", "title")
         query = Recipe.query.filter_by(user_id=current_user.id)
+
+        if search_query:
+            search_pattern = f"%{search_query}%"
+            query = query.filter(
+                db.or_(
+                    Recipe.title.ilike(search_pattern),
+                    Recipe.description.ilike(search_pattern),
+                    Recipe.instructions.ilike(search_pattern),
+                    Recipe.ingredients.any(Ingredient.name.ilike(search_pattern)),
+                )
+            )
 
         if selected_food_category:
             query = query.filter(Recipe.food_category == selected_food_category)
@@ -427,6 +517,9 @@ def register_routes(app):
             recipes=recipe_list,
             food_categories=all_food_categories,
             meal_types=meal_types,
+            meal_plan_slots=meal_plan_slots,
+            days=["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+            search_query=search_query,
             selected_food_category=selected_food_category,
             selected_meal_type=selected_meal_type,
             selected_sort=selected_sort,
@@ -652,6 +745,10 @@ def register_routes(app):
 
         if request.method == "POST":
             PlannedMeal.query.filter_by(user_id=current_user.id).delete()
+            valid_recipe_ids = {
+                recipe_id
+                for (recipe_id,) in Recipe.query.filter_by(user_id=current_user.id).with_entities(Recipe.id).all()
+            }
             selected_slots = ["dinner"]
 
             if request.form.get("include_breakfast"):
@@ -664,26 +761,38 @@ def register_routes(app):
                 for meal_type in selected_slots:
                     recipe_id = request.form.get(f"{meal_type}_{day.lower()}", "")
 
-                    if not recipe_id:
+                    if not recipe_id or not recipe_id.isdigit() or int(recipe_id) not in valid_recipe_ids:
                         continue
 
                     planned_meal = PlannedMeal(
                         day=day,
                         meal_type=meal_type,
-                        recipe_id=recipe_id,
+                        recipe_id=int(recipe_id),
                         user_id=current_user.id,
                     )
 
                     db.session.add(planned_meal)
 
             db.session.commit()
+            clear_meal_plan_draft()
             flash("Meal plan saved.", "success")
             return redirect(url_for("meal_plan"))
 
         planned_meals = PlannedMeal.query.filter_by(user_id=current_user.id).all()
         planned_lookup = {(planned_meal.day, planned_meal.meal_type): planned_meal.recipe_id for planned_meal in planned_meals}
-        show_breakfast = any(planned_meal.meal_type == "breakfast" for planned_meal in planned_meals)
-        show_lunch = any(planned_meal.meal_type == "lunch" for planned_meal in planned_meals)
+        draft = get_meal_plan_draft()
+        recipe_ids = {recipe.id for recipe in recipes}
+        has_draft = draft is not None
+
+        if draft:
+            planned_lookup = build_planned_lookup_from_draft(draft, recipe_ids)
+
+        show_breakfast = (
+            draft["include_breakfast"] if draft else any(planned_meal.meal_type == "breakfast" for planned_meal in planned_meals)
+        )
+        show_lunch = (
+            draft["include_lunch"] if draft else any(planned_meal.meal_type == "lunch" for planned_meal in planned_meals)
+        )
         planned_ingredients = build_shopping_list(current_user)
 
         return render_template(
@@ -696,8 +805,86 @@ def register_routes(app):
             meal_type_label=meal_type_label,
             show_breakfast=show_breakfast,
             show_lunch=show_lunch,
+            has_draft=has_draft,
             planned_ingredients=planned_ingredients,
         )
+
+    @app.route("/meal-plan/draft", methods=["POST"])
+    @login_required
+    def save_meal_plan_draft_route():
+        days = [
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday",
+            "Sunday",
+        ]
+        draft = build_meal_plan_draft_from_form(days)
+        valid_recipe_ids = {
+            str(recipe_id)
+            for (recipe_id,) in Recipe.query.filter_by(user_id=current_user.id).with_entities(Recipe.id).all()
+        }
+        draft["meals"] = {
+            field_name: recipe_id
+            for field_name, recipe_id in draft["meals"].items()
+            if recipe_id in valid_recipe_ids
+        }
+        save_meal_plan_draft(draft)
+
+        return jsonify({"status": "saved"})
+
+    @app.route("/meal-plan/draft/add", methods=["POST"])
+    @login_required
+    def add_recipe_to_meal_plan_draft():
+        days = [
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday",
+            "Sunday",
+        ]
+        valid_day_keys = {day.lower() for day in days}
+        valid_slots = {slot for slot, _label in meal_plan_slots}
+        recipe_id = request.form.get("recipe_id", "")
+        day_key = request.form.get("day", "").strip().lower()
+        meal_type = request.form.get("meal_type", "").strip()
+
+        recipe = None
+
+        if recipe_id.isdigit():
+            recipe = Recipe.query.filter_by(id=int(recipe_id), user_id=current_user.id).first()
+
+        if not recipe or day_key not in valid_day_keys or meal_type not in valid_slots:
+            flash("Choose a valid day and meal for that recipe.", "danger")
+            return redirect(request.form.get("next") or url_for("recipes"))
+
+        draft = get_meal_plan_draft()
+
+        if draft is None:
+            planned_meals = PlannedMeal.query.filter_by(user_id=current_user.id).all()
+            draft = empty_meal_plan_draft()
+            draft["include_breakfast"] = any(planned_meal.meal_type == "breakfast" for planned_meal in planned_meals)
+            draft["include_lunch"] = any(planned_meal.meal_type == "lunch" for planned_meal in planned_meals)
+            draft["meals"] = {
+                f"{planned_meal.meal_type}_{planned_meal.day.lower()}": str(planned_meal.recipe_id)
+                for planned_meal in planned_meals
+            }
+
+        if meal_type == "breakfast":
+            draft["include_breakfast"] = True
+
+        if meal_type == "lunch":
+            draft["include_lunch"] = True
+
+        draft["meals"][f"{meal_type}_{day_key}"] = str(recipe.id)
+        save_meal_plan_draft(draft)
+        flash(f"Added {recipe.title} to your meal plan draft.", "success")
+
+        return redirect(request.form.get("next") or url_for("recipes"))
 
     @app.route("/shopping-list")
     @login_required
