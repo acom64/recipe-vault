@@ -130,6 +130,10 @@
                 <span class="favorite-chip" aria-label="Favorite recipe">
                     <i class="bi bi-heart-fill" aria-hidden="true"></i>
                 </span>
+            {% else %}
+                <span class="favorite-chip" aria-label="Favorite recipe" hidden>
+                    <i class="bi bi-heart-fill" aria-hidden="true"></i>
+                </span>
             {% endif %}
         </a>
 
@@ -171,10 +175,10 @@
                 Add to Meal Plan
             </button>
             <div class="icon-actions" aria-label="Recipe quick actions">
-                <form method="POST" action="{{ url_for('toggle_favorite_recipe', recipe_id=recipe.id) }}">
+                <form method="POST" action="{{ url_for('toggle_favorite_recipe', recipe_id=recipe.id) }}" data-favorite-form data-recipe-id="{{ recipe.id }}">
                     <input type="hidden" name="next" value="{{ request.full_path }}">
-                    <button class="btn btn-icon" type="submit" title="{{ 'Remove favorite' if recipe.is_favorite else 'Favorite' }}" aria-label="{{ 'Remove favorite' if recipe.is_favorite else 'Favorite' }}">
-                        <i class="bi {{ 'bi-heart-fill' if recipe.is_favorite else 'bi-heart' }}" aria-hidden="true"></i>
+                    <button class="btn btn-icon favorite-toggle-button" type="submit" title="{{ 'Remove favorite' if recipe.is_favorite else 'Favorite' }}" aria-label="{{ 'Remove favorite' if recipe.is_favorite else 'Favorite' }}" data-favorite-button>
+                        <i class="bi {{ 'bi-heart-fill' if recipe.is_favorite else 'bi-heart' }}" aria-hidden="true" data-favorite-icon></i>
                     </button>
                 </form>
                 <a class="btn btn-icon" href="{{ url_for('edit_recipe', recipe_id=recipe.id) }}" title="Edit" aria-label="Edit">

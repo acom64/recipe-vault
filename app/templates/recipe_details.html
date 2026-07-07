@@ -10,11 +10,11 @@
   </a>
 
   <div class="detail-actions">
-    <form method="POST" action="{{ url_for('toggle_favorite_recipe', recipe_id=recipe.id) }}">
+    <form method="POST" action="{{ url_for('toggle_favorite_recipe', recipe_id=recipe.id) }}" data-favorite-form data-recipe-id="{{ recipe.id }}">
       <input type="hidden" name="next" value="{{ request.full_path }}">
-      <button type="submit" class="btn btn-outline-primary">
-        <i class="bi {{ 'bi-heart-fill' if recipe.is_favorite else 'bi-heart' }}" aria-hidden="true"></i>
-        {{ "Favorited" if recipe.is_favorite else "Favorite" }}
+      <button type="submit" class="btn btn-outline-primary favorite-toggle-button" title="{{ 'Remove favorite' if recipe.is_favorite else 'Favorite' }}" aria-label="{{ 'Remove favorite' if recipe.is_favorite else 'Favorite' }}" data-favorite-button>
+        <i class="bi {{ 'bi-heart-fill' if recipe.is_favorite else 'bi-heart' }}" aria-hidden="true" data-favorite-icon></i>
+        <span data-favorite-label>{{ "Favorited" if recipe.is_favorite else "Favorite" }}</span>
       </button>
     </form>
     <form method="POST" action="{{ url_for('duplicate_recipe', recipe_id=recipe.id) }}">

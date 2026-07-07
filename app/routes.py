@@ -1088,8 +1088,21 @@ def register_routes(app):
         recipe.is_favorite = not recipe.is_favorite
         db.session.commit()
 
+        message = f"{recipe.title} {'added to' if recipe.is_favorite else 'removed from'} favorites."
+
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify(
+                {
+                    "status": "saved",
+                    "is_favorite": recipe.is_favorite,
+                    "message": message,
+                    "button_label": "Favorited" if recipe.is_favorite else "Favorite",
+                    "aria_label": "Remove favorite" if recipe.is_favorite else "Favorite",
+                }
+            )
+
         flash(
-            f"{recipe.title} {'added to' if recipe.is_favorite else 'removed from'} favorites.",
+            message,
             "success",
         )
 

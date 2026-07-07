@@ -499,6 +499,26 @@ class AuthAndOwnershipTests(unittest.TestCase):
         self.assertIn(b"Favorited", favorite_response.data)
         self.assertTrue(db.session.get(Recipe, recipe.id).is_favorite)
 
+        recipe_list_response = self.client.get("/recipes")
+
+        self.assertIn(b"data-favorite-form", recipe_list_response.data)
+        self.assertIn(b"data-favorite-button", recipe_list_response.data)
+
+        ajax_response = self.client.post(
+            f"/recipes/{recipe.id}/favorite",
+            headers={"X-Requested-With": "XMLHttpRequest"},
+        )
+
+        self.assertEqual(ajax_response.status_code, 200)
+        self.assertFalse(ajax_response.json["is_favorite"])
+        self.assertEqual(ajax_response.json["button_label"], "Favorite")
+        self.assertFalse(db.session.get(Recipe, recipe.id).is_favorite)
+
+        self.client.post(
+            f"/recipes/{recipe.id}/favorite",
+            headers={"X-Requested-With": "XMLHttpRequest"},
+        )
+
         duplicate_response = self.client.post(
             f"/recipes/{recipe.id}/duplicate",
             follow_redirects=True,
