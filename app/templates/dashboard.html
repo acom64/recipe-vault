@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="page-heading">
+    <div>
+        <p class="eyebrow">Welcome back</p>
+        <h1>Dashboard</h1>
+        <p class="page-subtitle">Your recipes, plan, and grocery list in one place.</p>
+    </div>
+    <div class="page-actions">
+        <a class="btn btn-outline-primary" href="{{ url_for('meal_plan') }}">
+            <i class="bi bi-calendar-plus" aria-hidden="true"></i>
+            Plan Week
+        </a>
+        <a class="btn btn-primary" href="{{ url_for('new_recipe') }}">
+            <i class="bi bi-plus-lg" aria-hidden="true"></i>
+            Add Recipe
+        </a>
+    </div>
+</div>
+
+<section class="stat-grid" aria-label="Dashboard totals">
+    <div class="stat-card">
+        <span class="stat-icon stat-green"><i class="bi bi-collection" aria-hidden="true"></i></span>
+        <div>
+            <strong>{{ recipe_count }}</strong>
+            <span>Recipes</span>
+        </div>
+    </div>
+    <div class="stat-card">
+        <span class="stat-icon stat-red"><i class="bi bi-heart-fill" aria-hidden="true"></i></span>
+        <div>
+            <strong>{{ favorite_count }}</strong>
+            <span>Favorites</span>
+        </div>
+    </div>
+    <div class="stat-card">
+        <span class="stat-icon stat-gold"><i class="bi bi-calendar-week" aria-hidden="true"></i></span>
+        <div>
+            <strong>{{ planned_meals|length }}</strong>
+            <span>Planned meals</span>
+        </div>
+    </div>
+    <div class="stat-card">
+        <span class="stat-icon stat-teal"><i class="bi bi-bag-check" aria-hidden="true"></i></span>
+        <div>
+            <strong>{{ shopping_progress.checked }}/{{ shopping_progress.total }}</strong>
+            <span>Shopping progress</span>
+        </div>
+    </div>
+</section>
+
+<div class="dashboard-grid">
+    <section class="surface-panel">
+        <div class="section-heading">
+            <div>
+                <h2>This Week</h2>
+                <p>Monday through Sunday</p>
+            </div>
+            <a class="btn btn-sm btn-outline-primary" href="{{ url_for('meal_plan') }}">
+                <i class="bi bi-pencil-square" aria-hidden="true"></i>
+                Edit
+            </a>
+        </div>
+
+        {% if planned_meals %}
+            <div class="week-strip">
+                {% for day, meals in planned_by_day.items() %}
+                    <article class="week-day">
+                        <h3>{{ day[:3] }}</h3>
+                        {% if meals %}
+                            {% for meal in meals %}
+                                <div class="mini-meal">
+                                    <span>{{ meal_type_label(meal.meal_type) }}</span>
+                                    <strong>{{ meal.recipe.title }}</strong>
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <span class="muted-small">Open</span>
+                        {% endif %}
+                    </article>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="empty-state compact">
+                <i class="bi bi-calendar2-plus" aria-hidden="true"></i>
+                <h3>No meals planned yet</h3>
+                <p>Create a plan once you have at least one recipe.</p>
+                <a class="btn btn-primary" href="{{ url_for('meal_plan') }}">Open Planner</a>
+            </div>
+        {% endif %}
+    </section>
+
+    <section class="surface-panel">
+        <div class="section-heading">
+            <div>
+                <h2>Shopping List</h2>
+                <p>{{ shopping_progress.percent }}% complete</p>
+            </div>
+            <a class="btn btn-sm btn-outline-primary" href="{{ url_for('shopping_list') }}">
+                <i class="bi bi-bag" aria-hidden="true"></i>
+                Open
+            </a>
+        </div>
+
+        {% if shopping_items %}
+            <div class="progress app-progress mb-3" role="progressbar" aria-label="Shopping progress" aria-valuenow="{{ shopping_progress.percent }}" aria-valuemin="0" aria-valuemax="100">
+                <div class="progress-bar" style="width: {{ shopping_progress.percent }}%"></div>
+            </div>
+            <ul class="quick-list">
+                {% for item in shopping_items %}
+                    <li>
+                        <span class="{% if item.checked %}is-complete{% endif %}">
+                            {% if item.quantity is not none %}{{ item.quantity|quantity }} {% endif %}{% if item.unit %}{{ item.unit }} {% endif %}{{ item.name }}
+                        </span>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <div class="empty-state compact">
+                <i class="bi bi-basket" aria-hidden="true"></i>
+                <h3>No grocery items</h3>
+                <p>Save a meal plan to generate a merged list.</p>
+            </div>
+        {% endif %}
+    </section>
+</div>
+
+<section class="surface-panel mt-4">
+    <div class="section-heading">
+        <div>
+            <h2>Recently Added</h2>
+            <p>Your newest recipes</p>
+        </div>
+        <a class="btn btn-sm btn-outline-primary" href="{{ url_for('recipes') }}">
+            <i class="bi bi-arrow-right" aria-hidden="true"></i>
+            Library
+        </a>
+    </div>
+
+    {% if recent_recipes %}
+        <div class="recipe-mini-grid">
+            {% for recipe in recent_recipes %}
+                <a class="recipe-mini-card" href="{{ url_for('recipe_detail', recipe_id=recipe.id) }}">
+                    <span class="recipe-mini-thumb">
+                        {% if recipe.photo_filename %}
+                            <img src="{{ url_for('static', filename='uploads/' ~ recipe.photo_filename) }}" alt="{{ recipe.title }}">
+                        {% else %}
+                            <i class="bi bi-journal-bookmark" aria-hidden="true"></i>
+                        {% endif %}
+                    </span>
+                    <span>
+                        <strong>{{ recipe.title }}</strong>
+                        <small>
+                            {% if recipe.total_time %}
+                                {{ recipe.total_time }} min
+                            {% elif recipe.food_category %}
+                                {{ recipe.food_category }}
+                            {% else %}
+                                Recipe
+                            {% endif %}
+                        </small>
+                    </span>
+                </a>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="empty-state compact">
+            <i class="bi bi-journal-plus" aria-hidden="true"></i>
+            <h3>Your vault is ready</h3>
+            <p>Add your first recipe to unlock planning and shopping.</p>
+            <a class="btn btn-primary" href="{{ url_for('new_recipe') }}">Add Recipe</a>
+        </div>
+    {% endif %}
+</section>
+{% endblock %}

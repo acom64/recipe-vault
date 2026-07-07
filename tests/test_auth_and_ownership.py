@@ -4,7 +4,7 @@ import unittest
 
 from app import create_app
 from app.extensions import db
-from app.models import PlannedMeal, Recipe
+from app.models import PlannedMeal, Recipe, ShoppingListItemState, User
 
 
 class AuthAndOwnershipTests(unittest.TestCase):
@@ -463,6 +463,137 @@ class AuthAndOwnershipTests(unittest.TestCase):
         self.assertIn(b"Added Tacos to your meal plan draft.", add_response.data)
         self.assertIn(f'value="{recipe.id}" selected'.encode(), meal_plan_response.data)
         self.assertEqual(PlannedMeal.query.count(), 0)
+
+    def test_dashboard_recipe_metadata_duplicate_and_favorite_actions(self):
+        self.register_and_login("olivia")
+
+        response = self.client.post(
+            "/recipes/new",
+            data={
+                "title": "Lentil Soup",
+                "description": "Weeknight soup",
+                "food_category": "Soups",
+                "meal_type": ["lunch", "dinner"],
+                "prep_time": "10",
+                "cook_time": "25",
+                "servings": "4",
+                "notes": "Use extra lemon.",
+                "ingredients": "1 onion\n2 cups lentils",
+                "instructions": "Simmer until tender",
+            },
+            follow_redirects=True,
+        )
+        recipe = Recipe.query.filter_by(title="Lentil Soup").one()
+
+        self.assertIn(b"10 min prep", response.data)
+        self.assertIn(b"25 min cook", response.data)
+        self.assertIn(b"4 servings", response.data)
+        self.assertIn(b"Use extra lemon.", response.data)
+
+        favorite_response = self.client.post(
+            f"/recipes/{recipe.id}/favorite",
+            data={"next": f"/recipes/{recipe.id}"},
+            follow_redirects=True,
+        )
+
+        self.assertIn(b"Favorited", favorite_response.data)
+        self.assertTrue(db.session.get(Recipe, recipe.id).is_favorite)
+
+        duplicate_response = self.client.post(
+            f"/recipes/{recipe.id}/duplicate",
+            follow_redirects=True,
+        )
+
+        self.assertIn(b"Copy of Lentil Soup", duplicate_response.data)
+        self.assertEqual(Recipe.query.count(), 2)
+
+        dashboard_response = self.client.get("/dashboard")
+
+        self.assertIn(b"Dashboard", dashboard_response.data)
+        self.assertIn(b"Lentil Soup", dashboard_response.data)
+
+    def test_shopping_list_groups_merges_and_persists_checked_items(self):
+        self.register_and_login("parker")
+        recipe_ids = []
+
+        for title, ingredients in [
+            ("Tacos", "1 onion\n2 tortillas"),
+            ("Soup", "1 onion\n1 cup broth"),
+        ]:
+            self.client.post(
+                "/recipes/new",
+                data={
+                    "title": title,
+                    "description": "",
+                    "food_category": "Tacos",
+                    "meal_type": "dinner",
+                    "ingredients": ingredients,
+                    "instructions": "",
+                },
+                follow_redirects=True,
+            )
+            recipe_ids.append(Recipe.query.filter_by(title=title).one().id)
+
+        self.client.post(
+            "/meal-plan",
+            data={
+                "dinner_monday": str(recipe_ids[0]),
+                "dinner_tuesday": str(recipe_ids[1]),
+            },
+            follow_redirects=True,
+        )
+
+        response = self.client.get("/shopping-list")
+
+        self.assertIn(b"Produce", response.data)
+        self.assertIn(b"onion", response.data)
+        self.assertIn(b"Shopping Mode", response.data)
+
+        update_response = self.client.post(
+            "/shopping-list/item",
+            data={"item_key": "onion|", "checked": "true"},
+        )
+
+        self.assertEqual(update_response.status_code, 200)
+        self.assertEqual(update_response.json["progress"]["checked"], 1)
+        self.assertTrue(ShoppingListItemState.query.filter_by(item_key="onion|").one().checked)
+
+        checked_response = self.client.get("/shopping-list")
+
+        self.assertIn(b"is-checked", checked_response.data)
+
+    def test_settings_can_update_username_and_password(self):
+        self.register_and_login("quinn")
+
+        profile_response = self.client.post(
+            "/settings",
+            data={"action": "profile", "username": "quinn-updated"},
+            follow_redirects=True,
+        )
+
+        self.assertIn(b"Profile updated.", profile_response.data)
+        self.assertIsNotNone(User.query.filter_by(username="quinn-updated").first())
+
+        password_response = self.client.post(
+            "/settings",
+            data={
+                "action": "password",
+                "current_password": "secret123",
+                "new_password": "better123",
+            },
+            follow_redirects=True,
+        )
+
+        self.assertIn(b"Password updated.", password_response.data)
+        self.client.get("/logout", follow_redirects=True)
+
+        login_response = self.client.post(
+            "/login",
+            data={"username": "quinn-updated", "password": "better123"},
+            follow_redirects=True,
+        )
+
+        self.assertIn(b"Welcome back, quinn-updated!", login_response.data)
 
 
 if __name__ == "__main__":

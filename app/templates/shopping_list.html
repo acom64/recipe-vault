@@ -3,52 +3,179 @@
 {% block title %}Shopping List{% endblock %}
 
 {% block content %}
-<div class="d-flex flex-column flex-sm-row gap-3 justify-content-between align-items-sm-center mb-4">
+<div class="page-heading shopping-heading">
   <div>
-    <h1 class="mb-1">Shopping List</h1>
-    <p class="text-muted mb-0">Check items off as you shop.</p>
+    <p class="eyebrow">Grocery Run</p>
+    <h1>Shopping List</h1>
+    <p class="page-subtitle">{{ shopping_progress.checked }} of {{ shopping_progress.total }} checked</p>
   </div>
 
-  <a class="btn btn-outline-secondary" href="{{ url_for('meal_plan') }}">
-    Back
-  </a>
+  <div class="page-actions shopping-actions">
+    <button class="btn btn-outline-primary" type="button" id="copyShoppingList" {% if not planned_ingredients %}disabled{% endif %}>
+      <i class="bi bi-clipboard" aria-hidden="true"></i>
+      Copy
+    </button>
+    <button class="btn btn-outline-primary" type="button" data-bs-toggle="collapse" data-bs-target="#notesExport" aria-expanded="false" aria-controls="notesExport" {% if not planned_ingredients %}disabled{% endif %}>
+      <i class="bi bi-journal-text" aria-hidden="true"></i>
+      Notes
+    </button>
+    <button class="btn btn-outline-primary" type="button" onclick="window.print()" {% if not planned_ingredients %}disabled{% endif %}>
+      <i class="bi bi-printer" aria-hidden="true"></i>
+      Print
+    </button>
+    <button class="btn btn-primary" type="button" id="shoppingModeToggle" {% if not planned_ingredients %}disabled{% endif %}>
+      <i class="bi bi-phone" aria-hidden="true"></i>
+      Shopping Mode
+    </button>
+  </div>
 </div>
 
 {% if planned_ingredients %}
-  <div class="list-group shopping-checklist">
+  <section class="surface-panel shopping-progress-panel">
+    <div class="shopping-progress-copy">
+      <strong id="shoppingProgressLabel">{{ shopping_progress.percent }}% complete</strong>
+      <span>Generated from your saved meal plan.</span>
+    </div>
+    <div class="progress app-progress" role="progressbar" aria-label="Shopping progress" aria-valuenow="{{ shopping_progress.percent }}" aria-valuemin="0" aria-valuemax="100">
+      <div class="progress-bar" id="shoppingProgressBar" style="width: {{ shopping_progress.percent }}%"></div>
+    </div>
+    <form method="POST" action="{{ url_for('reset_shopping_list') }}" data-confirm="Reset checked shopping items?">
+      <button class="btn btn-outline-secondary btn-sm" type="submit">Reset</button>
+    </form>
+  </section>
+
+  <div class="collapse" id="notesExport">
+    <section class="surface-panel notes-export-panel">
+      <label for="shoppingExportText" class="form-label">iPhone Notes Text</label>
+      <textarea id="shoppingExportText" class="form-control" rows="10" readonly>{{ shopping_text }}</textarea>
+    </section>
+  </div>
+
+  <div class="shopping-checklist" data-update-url="{{ url_for('update_shopping_item') }}">
+    {% set current_group = namespace(value="") %}
     {% for ingredient in planned_ingredients %}
-      <div class="list-group-item">
-        <input class="form-check-input shopping-check" type="checkbox" id="ingredient-{{ loop.index }}">
-        <label for="ingredient-{{ loop.index }}" class="mb-0">
-          {% if ingredient.quantity is not none %}
-            {{ ingredient.quantity }}
-          {% endif %}
+      {% if ingredient.group != current_group.value %}
+        {% set current_group.value = ingredient.group %}
+        <h2 class="shopping-group-heading">{{ ingredient.group }}</h2>
+      {% endif %}
 
-          {% if ingredient.unit %}
-            {{ ingredient.unit }}
-          {% endif %}
-
-          {{ ingredient.name }}
+      <div class="shopping-item {% if ingredient.checked %}is-checked{% endif %}">
+        <input
+          class="form-check-input shopping-check"
+          type="checkbox"
+          id="ingredient-{{ loop.index }}"
+          data-item-key="{{ ingredient.key }}"
+          {% if ingredient.checked %}checked{% endif %}>
+        <label for="ingredient-{{ loop.index }}">
+          <span class="shopping-amount">
+            {% if ingredient.quantity is not none %}
+              {{ ingredient.quantity|quantity }}
+            {% endif %}
+            {% if ingredient.unit %}
+              {{ ingredient.unit }}
+            {% endif %}
+          </span>
+          <strong>{{ ingredient.name }}</strong>
         </label>
       </div>
     {% endfor %}
   </div>
 {% else %}
-  <div class="card shadow-sm">
-    <div class="card-body p-3 p-md-4">
-      <p class="text-muted mb-0">Add meals to the meal plan first to build a shopping list.</p>
-    </div>
+  <div class="empty-state">
+    <i class="bi bi-basket" aria-hidden="true"></i>
+    <h2>No shopping list yet</h2>
+    <p>Save meals in the planner to generate a merged grocery list.</p>
+    <a class="btn btn-primary" href="{{ url_for('meal_plan') }}">Open Meal Planner</a>
   </div>
 {% endif %}
 
-<script>
-  document.querySelectorAll(".shopping-check").forEach(function (checkbox) {
-    checkbox.addEventListener("change", function () {
-      var label = document.querySelector('label[for="' + checkbox.id + '"]');
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+  <div id="shoppingToast" class="toast" role="status" aria-live="polite" aria-atomic="true">
+    <div class="toast-body">Shopping list copied.</div>
+  </div>
+</div>
+{% endblock %}
 
-      label.classList.toggle("text-decoration-line-through", checkbox.checked);
-      label.classList.toggle("text-muted", checkbox.checked);
+{% block scripts %}
+<script>
+  const shoppingList = document.querySelector(".shopping-checklist");
+  const progressBar = document.querySelector("#shoppingProgressBar");
+  const progressLabel = document.querySelector("#shoppingProgressLabel");
+  const copyButton = document.querySelector("#copyShoppingList");
+  const exportText = document.querySelector("#shoppingExportText");
+  const modeToggle = document.querySelector("#shoppingModeToggle");
+  const toastElement = document.querySelector("#shoppingToast");
+  const toast = toastElement ? new bootstrap.Toast(toastElement) : null;
+
+  const copyText = async (text) => {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return;
+    }
+
+    exportText.focus();
+    exportText.select();
+    document.execCommand("copy");
+    exportText.setSelectionRange(0, 0);
+  };
+
+  const updateProgress = (progress) => {
+    if (!progressBar || !progressLabel || !progress) {
+      return;
+    }
+
+    progressBar.style.width = `${progress.percent}%`;
+    progressBar.setAttribute("aria-valuenow", progress.percent);
+    progressLabel.textContent = `${progress.percent}% complete`;
+    document.querySelector(".page-subtitle").textContent = `${progress.checked} of ${progress.total} checked`;
+  };
+
+  document.querySelectorAll(".shopping-check").forEach((checkbox) => {
+    checkbox.addEventListener("change", () => {
+      const item = checkbox.closest(".shopping-item");
+      item.classList.toggle("is-checked", checkbox.checked);
+
+      if (!shoppingList) {
+        return;
+      }
+
+      const body = new URLSearchParams({
+        item_key: checkbox.dataset.itemKey,
+        checked: String(checkbox.checked)
+      });
+
+      fetch(shoppingList.dataset.updateUrl, {
+        method: "POST",
+        body,
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"
+        },
+        credentials: "same-origin"
+      })
+        .then((response) => response.ok ? response.json() : null)
+        .then((data) => {
+          if (data && data.progress) {
+            updateProgress(data.progress);
+          }
+        })
+        .catch(() => {});
     });
   });
+
+  if (copyButton && exportText) {
+    copyButton.addEventListener("click", async () => {
+      await copyText(exportText.value);
+      if (toast) {
+        toast.show();
+      }
+    });
+  }
+
+  if (modeToggle) {
+    modeToggle.addEventListener("click", () => {
+      document.body.classList.toggle("shopping-mode");
+      modeToggle.classList.toggle("active", document.body.classList.contains("shopping-mode"));
+    });
+  }
 </script>
 {% endblock %}

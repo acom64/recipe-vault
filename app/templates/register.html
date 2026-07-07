@@ -3,32 +3,42 @@
 {% block title %}Register{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-  <div class="col-lg-5 col-md-7">
-    <div class="card shadow-sm">
-      <div class="card-body p-4 p-md-5">
-        <h1 class="h3 mb-3">Create an account</h1>
-        <p class="text-muted">Keep your recipes, meal plans, and lists private.</p>
+<div class="auth-layout">
+  <section class="auth-panel">
+    <p class="eyebrow">Start Your Vault</p>
+    <h1>Create an account</h1>
+    <p class="auth-copy">Keep recipes, meal plans, and shopping lists private to you.</p>
 
-        <form method="POST">
-          <div class="mb-3">
-            <label for="username" class="form-label">Username</label>
-            <input type="text" class="form-control form-control-lg" id="username" name="username" required>
-          </div>
-
-          <div class="mb-4">
-            <label for="password" class="form-label">Password</label>
-            <input type="password" class="form-control form-control-lg" id="password" name="password" required>
-          </div>
-
-          <button type="submit" class="btn btn-primary btn-lg w-100">Register</button>
-        </form>
-
-        <p class="mt-3 mb-0 text-center">
-          Already have an account? <a href="{{ url_for('login') }}">Log in</a>
-        </p>
+    <form method="POST" class="auth-form">
+      <div>
+        <label for="username" class="form-label">Username</label>
+        <div class="input-icon">
+          <i class="bi bi-person" aria-hidden="true"></i>
+          <input type="text" class="form-control form-control-lg" id="username" name="username" autocomplete="username" required>
+        </div>
       </div>
-    </div>
-  </div>
+
+      <div>
+        <label for="password" class="form-label">Password</label>
+        <div class="input-icon">
+          <i class="bi bi-lock" aria-hidden="true"></i>
+          <input type="password" class="form-control form-control-lg" id="password" name="password" autocomplete="new-password" minlength="6" required>
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-lg w-100" data-loading-text="Creating...">
+        <i class="bi bi-person-plus" aria-hidden="true"></i>
+        Register
+      </button>
+    </form>
+
+    <p class="auth-switch">
+      Already have an account? <a href="{{ url_for('login') }}">Log in</a>
+    </p>
+  </section>
+
+  <aside class="auth-aside">
+    <img src="{{ url_for('static', filename='img/recipe-vault-hero.png') }}" alt="Meal planning tablet with fresh ingredients">
+  </aside>
 </div>
 {% endblock %}

@@ -1,5 +1,6 @@
 import os
 import re
+from collections import OrderedDict
 from uuid import uuid4
 
 from flask import Response, current_app, flash, jsonify, redirect, render_template, request, session, url_for
@@ -8,12 +9,24 @@ from markupsafe import Markup, escape
 from werkzeug.utils import secure_filename
 
 from .extensions import db
-from .models import Ingredient, PlannedMeal, Recipe, User, format_ingredients, parse_ingredients
+from .models import (
+    Ingredient,
+    PlannedMeal,
+    Recipe,
+    ShoppingListItemState,
+    User,
+    format_ingredients,
+    format_quantity,
+    parse_ingredients,
+)
 
 
 def register_routes(app):
+    app.jinja_env.filters["quantity"] = format_quantity
+
     allowed_image_extensions = {"jpg", "jpeg", "png", "gif", "webp"}
     food_categories = [
+        "Breakfast",
         "Sandwiches",
         "Salads",
         "Bowls",
@@ -21,7 +34,11 @@ def register_routes(app):
         "Pastas",
         "Tacos",
         "Stir-fries",
+        "Sheet Pan",
+        "Slow Cooker",
+        "Baking",
         "Drinks",
+        "Desserts",
     ]
     meal_types = [
         ("breakfast", "Breakfast"),
@@ -46,9 +63,26 @@ def register_routes(app):
         "Description:": "description",
         "Food Category:": "food_category",
         "Meal Type:": "meal_type",
+        "Prep Time:": "prep_time",
+        "Cook Time:": "cook_time",
+        "Servings:": "servings",
+        "Notes:": "notes",
+        "Favorite:": "is_favorite",
         "Ingredients:": "ingredients",
         "Instructions:": "instructions",
     }
+    shopping_group_order = OrderedDict(
+        [
+            ("Produce", ("onion", "tomato", "pepper", "lettuce", "spinach", "garlic", "carrot", "celery", "potato", "herb", "cilantro", "parsley", "lemon", "lime", "apple", "banana", "berry", "mushroom", "avocado")),
+            ("Protein", ("chicken", "beef", "pork", "turkey", "fish", "salmon", "shrimp", "tofu", "egg", "sausage", "bacon", "beans")),
+            ("Dairy", ("milk", "cream", "cheese", "yogurt", "butter", "parmesan", "mozzarella", "cheddar")),
+            ("Bakery", ("bread", "bun", "roll", "tortilla", "pita", "bagel")),
+            ("Pantry", ("flour", "sugar", "rice", "pasta", "noodle", "oil", "vinegar", "broth", "stock", "can", "sauce", "honey", "oats", "quinoa")),
+            ("Spices", ("salt", "pepper", "paprika", "cumin", "oregano", "basil", "cinnamon", "chili", "spice", "seasoning")),
+            ("Frozen", ("frozen", "ice")),
+            ("Beverages", ("juice", "soda", "coffee", "tea", "wine", "beer")),
+        ]
+    )
 
     def meal_type_label(meal_type):
         return dict(meal_types).get(meal_type, meal_type.title() if meal_type else "")
@@ -79,8 +113,94 @@ def register_routes(app):
         for recipe in recipe_list:
             recipe.meal_type_values = parse_meal_types(recipe.meal_type)
             recipe.meal_type_labels = meal_type_labels(recipe.meal_type)
+            recipe.total_time = (recipe.prep_time or 0) + (recipe.cook_time or 0)
 
         return recipe_list
+
+    def recipe_form_values(recipe=None, overrides=None):
+        values = {
+            "title": "",
+            "description": "",
+            "food_category": "",
+            "prep_time": "",
+            "cook_time": "",
+            "servings": "",
+            "notes": "",
+            "instructions": "",
+            "is_favorite": False,
+        }
+
+        if recipe:
+            values.update(
+                {
+                    "title": recipe.title or "",
+                    "description": recipe.description or "",
+                    "food_category": recipe.food_category or "",
+                    "prep_time": recipe.prep_time or "",
+                    "cook_time": recipe.cook_time or "",
+                    "servings": recipe.servings or "",
+                    "notes": recipe.notes or "",
+                    "instructions": recipe.instructions or "",
+                    "is_favorite": bool(recipe.is_favorite),
+                }
+            )
+
+        if overrides:
+            values.update(overrides)
+
+        return values
+
+    def get_recipe_form_values():
+        return {
+            "title": request.form.get("title", "").strip(),
+            "description": request.form.get("description", "").strip(),
+            "food_category": request.form.get("food_category", "").strip(),
+            "prep_time": request.form.get("prep_time", "").strip(),
+            "cook_time": request.form.get("cook_time", "").strip(),
+            "servings": request.form.get("servings", "").strip(),
+            "notes": request.form.get("notes", "").strip(),
+            "instructions": request.form.get("instructions", "").strip(),
+            "is_favorite": bool(request.form.get("is_favorite")),
+        }
+
+    def parse_optional_positive_int(field_name, label, allow_zero=True):
+        raw_value = request.form.get(field_name, "").strip()
+
+        if not raw_value:
+            return None, None
+
+        try:
+            value = int(raw_value)
+        except ValueError:
+            return None, f"{label} must be a whole number."
+
+        if value < 0 or (value == 0 and not allow_zero):
+            return None, f"{label} must be {'zero or greater' if allow_zero else 'at least 1'}."
+
+        return value, None
+
+    def parse_recipe_numbers():
+        prep_time, prep_error = parse_optional_positive_int("prep_time", "Prep time")
+        cook_time, cook_error = parse_optional_positive_int("cook_time", "Cook time")
+        servings, servings_error = parse_optional_positive_int("servings", "Servings", allow_zero=False)
+        errors = [error for error in (prep_error, cook_error, servings_error) if error]
+
+        return prep_time, cook_time, servings, errors
+
+    def get_all_food_categories():
+        if not current_user.is_authenticated:
+            return food_categories
+
+        user_food_categories = [
+            category
+            for (category,) in db.session.query(Recipe.food_category)
+            .filter(Recipe.user_id == current_user.id, Recipe.food_category.isnot(None), Recipe.food_category != "")
+            .distinct()
+            .order_by(Recipe.food_category.asc())
+            .all()
+        ]
+
+        return sorted(set(food_categories + user_food_categories))
 
     def meal_plan_draft_key():
         return f"meal_plan_draft_{current_user.id}"
@@ -308,6 +428,16 @@ def register_routes(app):
                     recipe.food_category or "",
                     "Meal Type:",
                     recipe.meal_type or "",
+                    "Prep Time:",
+                    str(recipe.prep_time or ""),
+                    "Cook Time:",
+                    str(recipe.cook_time or ""),
+                    "Servings:",
+                    str(recipe.servings or ""),
+                    "Notes:",
+                    recipe.notes or "",
+                    "Favorite:",
+                    "yes" if recipe.is_favorite else "no",
                     "Ingredients:",
                     format_ingredients(recipe.ingredients),
                     "Instructions:",
@@ -333,6 +463,11 @@ def register_routes(app):
                     "description": [],
                     "food_category": [],
                     "meal_type": [],
+                    "prep_time": [],
+                    "cook_time": [],
+                    "servings": [],
+                    "notes": [],
+                    "is_favorite": [],
                     "ingredients": [],
                     "instructions": [],
                 }
@@ -371,14 +506,75 @@ def register_routes(app):
 
         return recipes_to_import
 
-    def build_shopping_list(user):
+    def parse_export_int(value):
+        value = (value or "").strip()
+
+        if not value:
+            return None
+
+        try:
+            parsed_value = int(value)
+        except ValueError:
+            return None
+
+        return parsed_value if parsed_value > 0 else None
+
+    def parse_export_bool(value):
+        return (value or "").strip().lower() in {"1", "true", "yes", "y", "favorite"}
+
+    def ingredient_group(name):
+        normalized_name = (name or "").lower()
+
+        for group, keywords in shopping_group_order.items():
+            if any(keyword in normalized_name for keyword in keywords):
+                return group
+
+        return "Other"
+
+    def shopping_item_key(name, unit):
+        return f"{(name or '').strip().lower()}|{(unit or '').strip().lower()}"
+
+    def ingredient_line(ingredient):
+        parts = []
+
+        if ingredient.get("quantity") is not None:
+            parts.append(format_quantity(ingredient["quantity"]))
+
+        if ingredient.get("unit"):
+            parts.append(ingredient["unit"])
+
+        parts.append(ingredient["name"])
+
+        return " ".join(part for part in parts if part).strip()
+
+    def shopping_text_from_items(items):
+        if not items:
+            return "Recipe Vault Shopping List\n\nNo shopping items yet."
+
+        lines = ["Recipe Vault Shopping List", ""]
+        current_group = None
+
+        for item in items:
+            if item["group"] != current_group:
+                current_group = item["group"]
+                lines.extend([current_group, "-" * len(current_group)])
+
+            prefix = "[x]" if item.get("checked") else "[ ]"
+            lines.append(f"{prefix} {ingredient_line(item)}")
+
+        return "\n".join(lines)
+
+    def build_shopping_list(user, include_state=True):
         planned_meals = PlannedMeal.query.filter_by(user_id=user.id).all()
         grouped_ingredients = {}
 
         for planned_meal in planned_meals:
+            if not planned_meal.recipe:
+                continue
+
             for ingredient in planned_meal.recipe.ingredients:
                 unit = ingredient.unit or ""
-                key = (ingredient.name.lower(), unit.lower())
+                key = shopping_item_key(ingredient.name, unit)
 
                 if key in grouped_ingredients:
                     existing_ingredient = grouped_ingredients[key]
@@ -390,21 +586,85 @@ def register_routes(app):
                         existing_ingredient["quantity"] += ingredient.quantity
                 else:
                     grouped_ingredients[key] = {
+                        "key": key,
                         "name": ingredient.name,
                         "quantity": ingredient.quantity,
                         "unit": unit,
+                        "group": ingredient_group(ingredient.name),
+                        "checked": False,
                     }
 
-        return grouped_ingredients.values()
+        items = sorted(
+            grouped_ingredients.values(),
+            key=lambda item: (
+                list(shopping_group_order.keys()).index(item["group"])
+                if item["group"] in shopping_group_order
+                else len(shopping_group_order),
+                item["name"].lower(),
+                item["unit"].lower(),
+            ),
+        )
+
+        if include_state and items:
+            states = {
+                state.item_key: state.checked
+                for state in ShoppingListItemState.query.filter_by(user_id=user.id).all()
+            }
+
+            for item in items:
+                item["checked"] = bool(states.get(item["key"]))
+
+        return items
+
+    def shopping_progress(items):
+        total = len(items)
+        checked = sum(1 for item in items if item.get("checked"))
+        percent = round((checked / total) * 100) if total else 0
+
+        return {"total": total, "checked": checked, "percent": percent}
 
     @app.route("/")
     def home():
+        if current_user.is_authenticated:
+            return redirect(url_for("dashboard"))
+
         return render_template("index.html")
+
+    @app.route("/dashboard")
+    @login_required
+    def dashboard():
+        recipes_query = Recipe.query.filter_by(user_id=current_user.id)
+        recipe_count = recipes_query.count()
+        favorite_count = recipes_query.filter_by(is_favorite=True).count()
+        planned_meals = PlannedMeal.query.filter_by(user_id=current_user.id).all()
+        planned_by_day = {day: [] for day in ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]}
+
+        for planned_meal in planned_meals:
+            if planned_meal.day in planned_by_day:
+                planned_by_day[planned_meal.day].append(planned_meal)
+
+        recent_recipes = attach_recipe_display_data(
+            recipes_query.order_by(Recipe.created_at.desc(), Recipe.id.desc()).limit(5).all()
+        )
+        shopping_items = build_shopping_list(current_user)
+        progress = shopping_progress(shopping_items)
+
+        return render_template(
+            "dashboard.html",
+            recipe_count=recipe_count,
+            favorite_count=favorite_count,
+            planned_meals=planned_meals,
+            planned_by_day=planned_by_day,
+            recent_recipes=recent_recipes,
+            shopping_items=shopping_items[:6],
+            shopping_progress=progress,
+            meal_type_label=meal_type_label,
+        )
 
     @app.route("/register", methods=["GET", "POST"])
     def register():
         if current_user.is_authenticated:
-            return redirect(url_for("recipes"))
+            return redirect(url_for("dashboard"))
 
         if request.method == "POST":
             username = request.form.get("username", "").strip()
@@ -434,7 +694,7 @@ def register_routes(app):
     @app.route("/login", methods=["GET", "POST"])
     def login():
         if current_user.is_authenticated:
-            return redirect(url_for("recipes"))
+            return redirect(url_for("dashboard"))
 
         if request.method == "POST":
             username = request.form.get("username", "").strip()
@@ -448,7 +708,7 @@ def register_routes(app):
             if user and user.check_password(password):
                 login_user(user)
                 flash(f"Welcome back, {user.username}!", "success")
-                return redirect(request.args.get("next") or url_for("recipes"))
+                return redirect(request.args.get("next") or url_for("dashboard"))
 
             flash("Invalid username or password.", "danger")
 
@@ -476,6 +736,7 @@ def register_routes(app):
                 db.or_(
                     Recipe.title.ilike(search_pattern),
                     Recipe.description.ilike(search_pattern),
+                    Recipe.notes.ilike(search_pattern),
                     Recipe.instructions.ilike(search_pattern),
                     Recipe.ingredients.any(Ingredient.name.ilike(search_pattern)),
                 )
@@ -498,24 +759,18 @@ def register_routes(app):
             "title": Recipe.title.asc(),
             "food_category": Recipe.food_category.asc(),
             "meal_type": Recipe.meal_type.asc(),
+            "newest": Recipe.created_at.desc(),
+            "favorites": Recipe.is_favorite.desc(),
+            "quickest": (db.func.coalesce(Recipe.prep_time, 0) + db.func.coalesce(Recipe.cook_time, 0)).asc(),
         }
         recipe_list = attach_recipe_display_data(
             query.order_by(sort_options.get(selected_sort, Recipe.title.asc()), Recipe.title.asc()).all()
         )
-        user_food_categories = [
-            category
-            for (category,) in db.session.query(Recipe.food_category)
-            .filter(Recipe.user_id == current_user.id, Recipe.food_category.isnot(None), Recipe.food_category != "")
-            .distinct()
-            .order_by(Recipe.food_category.asc())
-            .all()
-        ]
-        all_food_categories = sorted(set(food_categories + user_food_categories))
 
         return render_template(
             "recipes.html",
             recipes=recipe_list,
-            food_categories=all_food_categories,
+            food_categories=get_all_food_categories(),
             meal_types=meal_types,
             meal_plan_slots=meal_plan_slots,
             days=["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
@@ -523,6 +778,7 @@ def register_routes(app):
             selected_food_category=selected_food_category,
             selected_meal_type=selected_meal_type,
             selected_sort=selected_sort,
+            recipe_count=Recipe.query.filter_by(user_id=current_user.id).count(),
         )
 
     @app.route("/recipes/export")
@@ -559,6 +815,11 @@ def register_routes(app):
                 description=recipe_data["description"],
                 food_category=recipe_data.get("food_category", ""),
                 meal_type=serialize_meal_types(parse_meal_types(recipe_data.get("meal_type", ""))),
+                prep_time=parse_export_int(recipe_data.get("prep_time", "")),
+                cook_time=parse_export_int(recipe_data.get("cook_time", "")),
+                servings=parse_export_int(recipe_data.get("servings", "")),
+                notes=recipe_data.get("notes", ""),
+                is_favorite=parse_export_bool(recipe_data.get("is_favorite", "")),
                 instructions=recipe_data["instructions"],
                 user_id=current_user.id,
             )
@@ -593,26 +854,44 @@ def register_routes(app):
             return render_template(
                 "recipe_form.html",
                 recipe=None,
+                form_values=recipe_form_values(),
                 ingredients_text="",
-                food_categories=food_categories,
+                food_categories=get_all_food_categories(),
                 meal_types=meal_types,
                 selected_meal_types=[],
             )
 
-        title = request.form.get("title", "").strip()
-        description = request.form.get("description", "").strip()
-        food_category = request.form.get("food_category", "").strip()
+        form_values = get_recipe_form_values()
+        title = form_values["title"]
+        description = form_values["description"]
+        food_category = form_values["food_category"]
         meal_type = get_selected_meal_types()
         ingredients_text = request.form.get("ingredients", "")
-        instructions = request.form.get("instructions", "").strip()
+        instructions = form_values["instructions"]
+        prep_time, cook_time, servings, number_errors = parse_recipe_numbers()
 
         if not title or not ingredients_text.strip():
             flash("Please add a title and at least one ingredient.", "danger")
             return render_template(
                 "recipe_form.html",
                 recipe=None,
+                form_values=form_values,
                 ingredients_text=ingredients_text,
-                food_categories=food_categories,
+                food_categories=get_all_food_categories(),
+                meal_types=meal_types,
+                selected_meal_types=parse_meal_types(meal_type),
+            )
+
+        if number_errors:
+            for error in number_errors:
+                flash(error, "danger")
+
+            return render_template(
+                "recipe_form.html",
+                recipe=None,
+                form_values=form_values,
+                ingredients_text=ingredients_text,
+                food_categories=get_all_food_categories(),
                 meal_types=meal_types,
                 selected_meal_types=parse_meal_types(meal_type),
             )
@@ -628,8 +907,9 @@ def register_routes(app):
             return render_template(
                 "recipe_form.html",
                 recipe=None,
+                form_values=form_values,
                 ingredients_text=ingredients_text,
-                food_categories=food_categories,
+                food_categories=get_all_food_categories(),
                 meal_types=meal_types,
                 selected_meal_types=parse_meal_types(meal_type),
             )
@@ -642,6 +922,11 @@ def register_routes(app):
             description=description,
             food_category=food_category,
             meal_type=meal_type,
+            prep_time=prep_time,
+            cook_time=cook_time,
+            servings=servings,
+            notes=form_values["notes"],
+            is_favorite=form_values["is_favorite"],
             instructions=instructions,
             photo_filename=photo_filename,
             chef_photo_filename=chef_photo_filename,
@@ -667,17 +952,52 @@ def register_routes(app):
             return render_template(
                 "recipe_form.html",
                 recipe=recipe,
+                form_values=recipe_form_values(recipe),
                 ingredients_text=ingredients_text,
-                food_categories=food_categories,
+                food_categories=get_all_food_categories(),
                 meal_types=meal_types,
                 selected_meal_types=selected_meal_types,
             )
 
-        recipe.title = request.form.get("title", "").strip()
-        recipe.description = request.form.get("description", "").strip()
-        recipe.food_category = request.form.get("food_category", "").strip()
+        form_values = get_recipe_form_values()
+        prep_time, cook_time, servings, number_errors = parse_recipe_numbers()
+
+        if not form_values["title"] or not request.form.get("ingredients", "").strip():
+            flash("Please add a title and at least one ingredient.", "danger")
+            return render_template(
+                "recipe_form.html",
+                recipe=recipe,
+                form_values=form_values,
+                ingredients_text=request.form.get("ingredients", ""),
+                food_categories=get_all_food_categories(),
+                meal_types=meal_types,
+                selected_meal_types=parse_meal_types(get_selected_meal_types()),
+            )
+
+        if number_errors:
+            for error in number_errors:
+                flash(error, "danger")
+
+            return render_template(
+                "recipe_form.html",
+                recipe=recipe,
+                form_values=form_values,
+                ingredients_text=request.form.get("ingredients", ""),
+                food_categories=get_all_food_categories(),
+                meal_types=meal_types,
+                selected_meal_types=parse_meal_types(get_selected_meal_types()),
+            )
+
+        recipe.title = form_values["title"]
+        recipe.description = form_values["description"]
+        recipe.food_category = form_values["food_category"]
         recipe.meal_type = get_selected_meal_types()
-        recipe.instructions = request.form.get("instructions", "").strip()
+        recipe.prep_time = prep_time
+        recipe.cook_time = cook_time
+        recipe.servings = servings
+        recipe.notes = form_values["notes"]
+        recipe.is_favorite = form_values["is_favorite"]
+        recipe.instructions = form_values["instructions"]
         photo = get_uploaded_image("photo")
         chef_photo = get_uploaded_image("chef_photo")
         photo_error = validate_uploaded_image(photo)
@@ -689,8 +1009,9 @@ def register_routes(app):
             return render_template(
                 "recipe_form.html",
                 recipe=recipe,
+                form_values=form_values,
                 ingredients_text=request.form.get("ingredients", ""),
-                food_categories=food_categories,
+                food_categories=get_all_food_categories(),
                 meal_types=meal_types,
                 selected_meal_types=parse_meal_types(recipe.meal_type),
             )
@@ -719,11 +1040,56 @@ def register_routes(app):
     def delete_recipe(recipe_id):
         recipe = Recipe.query.filter_by(id=recipe_id, user_id=current_user.id).first_or_404()
 
+        PlannedMeal.query.filter_by(recipe_id=recipe.id, user_id=current_user.id).delete()
         db.session.delete(recipe)
         db.session.commit()
         flash("Recipe deleted.", "success")
 
         return redirect(url_for("recipes"))
+
+    @app.route("/recipes/<int:recipe_id>/duplicate", methods=["POST"])
+    @login_required
+    def duplicate_recipe(recipe_id):
+        recipe = Recipe.query.filter_by(id=recipe_id, user_id=current_user.id).first_or_404()
+        duplicate = Recipe(
+            title=f"Copy of {recipe.title}",
+            description=recipe.description,
+            food_category=recipe.food_category,
+            meal_type=recipe.meal_type,
+            prep_time=recipe.prep_time,
+            cook_time=recipe.cook_time,
+            servings=recipe.servings,
+            notes=recipe.notes,
+            is_favorite=recipe.is_favorite,
+            instructions=recipe.instructions,
+            photo_filename=recipe.photo_filename,
+            chef_photo_filename=recipe.chef_photo_filename,
+            user_id=current_user.id,
+        )
+        duplicate.ingredients = [
+            Ingredient(name=ingredient.name, quantity=ingredient.quantity, unit=ingredient.unit)
+            for ingredient in recipe.ingredients
+        ]
+
+        db.session.add(duplicate)
+        db.session.commit()
+        flash(f"Duplicated {recipe.title}.", "success")
+
+        return redirect(url_for("edit_recipe", recipe_id=duplicate.id))
+
+    @app.route("/recipes/<int:recipe_id>/favorite", methods=["POST"])
+    @login_required
+    def toggle_favorite_recipe(recipe_id):
+        recipe = Recipe.query.filter_by(id=recipe_id, user_id=current_user.id).first_or_404()
+        recipe.is_favorite = not recipe.is_favorite
+        db.session.commit()
+
+        flash(
+            f"{recipe.title} {'added to' if recipe.is_favorite else 'removed from'} favorites.",
+            "success",
+        )
+
+        return redirect(request.form.get("next") or url_for("recipe_detail", recipe_id=recipe.id))
 
     @app.route("/meal-plan", methods=["GET", "POST"])
     @login_required
@@ -779,6 +1145,14 @@ def register_routes(app):
             return redirect(url_for("meal_plan"))
 
         planned_meals = PlannedMeal.query.filter_by(user_id=current_user.id).all()
+        day_order = {day: index for index, day in enumerate(days)}
+        slot_order = {slot: index for index, (slot, _label) in enumerate(meal_plan_slots)}
+        planned_meals.sort(
+            key=lambda planned_meal: (
+                day_order.get(planned_meal.day, 99),
+                slot_order.get(planned_meal.meal_type, 99),
+            )
+        )
         planned_lookup = {(planned_meal.day, planned_meal.meal_type): planned_meal.recipe_id for planned_meal in planned_meals}
         draft = get_meal_plan_draft()
         recipe_ids = {recipe.id for recipe in recipes}
@@ -794,6 +1168,7 @@ def register_routes(app):
             draft["include_lunch"] if draft else any(planned_meal.meal_type == "lunch" for planned_meal in planned_meals)
         )
         planned_ingredients = build_shopping_list(current_user)
+        progress = shopping_progress(planned_ingredients)
 
         return render_template(
             "meal_plan.html",
@@ -807,6 +1182,7 @@ def register_routes(app):
             show_lunch=show_lunch,
             has_draft=has_draft,
             planned_ingredients=planned_ingredients,
+            shopping_progress=progress,
         )
 
     @app.route("/meal-plan/draft", methods=["POST"])
@@ -890,10 +1266,87 @@ def register_routes(app):
     @login_required
     def shopping_list():
         planned_ingredients = build_shopping_list(current_user)
+        progress = shopping_progress(planned_ingredients)
 
         return render_template(
             "shopping_list.html",
             planned_ingredients=planned_ingredients,
+            shopping_progress=progress,
+            shopping_text=shopping_text_from_items(planned_ingredients),
         )
+
+    @app.route("/shopping-list/item", methods=["POST"])
+    @login_required
+    def update_shopping_item():
+        data = request.get_json(silent=True) or request.form
+        item_key = (data.get("item_key") or "").strip()
+        checked = str(data.get("checked", "")).lower() in {"1", "true", "on", "yes"}
+        current_items = build_shopping_list(current_user, include_state=False)
+        valid_keys = {item["key"] for item in current_items}
+
+        if item_key not in valid_keys:
+            return jsonify({"status": "error", "message": "Shopping item was not found."}), 400
+
+        state = ShoppingListItemState.query.filter_by(user_id=current_user.id, item_key=item_key).first()
+
+        if not state:
+            state = ShoppingListItemState(user_id=current_user.id, item_key=item_key)
+            db.session.add(state)
+
+        state.checked = checked
+        db.session.commit()
+
+        updated_items = build_shopping_list(current_user)
+
+        return jsonify({"status": "saved", "progress": shopping_progress(updated_items)})
+
+    @app.route("/shopping-list/reset", methods=["POST"])
+    @login_required
+    def reset_shopping_list():
+        ShoppingListItemState.query.filter_by(user_id=current_user.id).delete()
+        db.session.commit()
+        flash("Shopping list progress reset.", "success")
+
+        return redirect(url_for("shopping_list"))
+
+    @app.route("/settings", methods=["GET", "POST"])
+    @login_required
+    def settings():
+        if request.method == "POST":
+            action = request.form.get("action")
+
+            if action == "profile":
+                username = request.form.get("username", "").strip()
+
+                if not username:
+                    flash("Username cannot be blank.", "danger")
+                elif User.query.filter(User.username == username, User.id != current_user.id).first():
+                    flash("That username is already taken.", "danger")
+                else:
+                    current_user.username = username
+                    db.session.commit()
+                    flash("Profile updated.", "success")
+
+                return redirect(url_for("settings"))
+
+            if action == "password":
+                current_password = request.form.get("current_password", "")
+                new_password = request.form.get("new_password", "")
+
+                if not current_user.check_password(current_password):
+                    flash("Current password is incorrect.", "danger")
+                elif len(new_password.strip()) < 6:
+                    flash("New password must be at least 6 characters long.", "danger")
+                else:
+                    current_user.set_password(new_password.strip())
+                    db.session.commit()
+                    flash("Password updated.", "success")
+
+                return redirect(url_for("settings"))
+
+            flash("Choose a valid settings action.", "danger")
+            return redirect(url_for("settings"))
+
+        return render_template("settings.html")
 
     return app

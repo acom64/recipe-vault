@@ -3,20 +3,21 @@
 {% block title %}Recipes{% endblock %}
 
 {% block content %}
-<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-4">
+<div class="page-heading">
     <div>
-        <h1 class="mb-1">Recipes</h1>
-        <p class="text-muted mb-0">Browse your saved meals and ingredients.</p>
+        <p class="eyebrow">Recipe Library</p>
+        <h1>Recipes</h1>
+        <p class="page-subtitle">{{ recipe_count }} saved {{ "recipe" if recipe_count == 1 else "recipes" }}</p>
     </div>
 
-    <div class="recipe-library-actions">
-        <a class="btn btn-outline-secondary" href="{{ url_for('export_recipes') }}">Export Recipes</a>
-        <form
-            action="{{ url_for('import_recipes') }}"
-            method="POST"
-            enctype="multipart/form-data"
-            class="recipe-import-form">
+    <div class="page-actions recipe-library-actions">
+        <a class="btn btn-outline-primary" href="{{ url_for('export_recipes') }}">
+            <i class="bi bi-download" aria-hidden="true"></i>
+            Export
+        </a>
+        <form action="{{ url_for('import_recipes') }}" method="POST" enctype="multipart/form-data" class="recipe-import-form">
             <button type="button" class="btn btn-outline-primary recipe-import-toggle" aria-expanded="false">
+                <i class="bi bi-upload" aria-hidden="true"></i>
                 Import
             </button>
             <div class="recipe-import-picker" hidden>
@@ -31,31 +32,37 @@
                         required>
                 </label>
                 <span class="recipe-import-file text-muted" aria-live="polite">No file selected</span>
-                <button type="submit" class="btn btn-outline-primary recipe-import-submit" disabled>
+                <button type="submit" class="btn btn-primary recipe-import-submit" data-loading-text="Uploading..." disabled>
                     Upload
                 </button>
             </div>
         </form>
-        <a class="btn btn-primary" href="{{ url_for('new_recipe') }}">Add Recipe</a>
+        <a class="btn btn-primary" href="{{ url_for('new_recipe') }}">
+            <i class="bi bi-plus-lg" aria-hidden="true"></i>
+            Add Recipe
+        </a>
     </div>
 </div>
 
-<form class="recipe-filter-bar mb-4" method="GET">
-    <div>
+<form class="recipe-filter-bar" method="GET">
+    <div class="search-field">
         <label for="q" class="form-label">Search</label>
-        <input
-            id="q"
-            name="q"
-            class="form-control"
-            type="search"
-            value="{{ search_query }}"
-            placeholder="Recipe, ingredient, notes">
+        <div class="input-icon">
+            <i class="bi bi-search" aria-hidden="true"></i>
+            <input
+                id="q"
+                name="q"
+                class="form-control"
+                type="search"
+                value="{{ search_query }}"
+                placeholder="Recipe, ingredient, note">
+        </div>
     </div>
 
     <div>
-        <label for="food_category" class="form-label">Food Category</label>
+        <label for="food_category" class="form-label">Category</label>
         <select id="food_category" name="food_category" class="form-select">
-            <option value="">All food categories</option>
+            <option value="">All categories</option>
             {% for category in food_categories %}
                 <option value="{{ category }}" {% if selected_food_category == category %}selected{% endif %}>
                     {{ category }}
@@ -65,9 +72,9 @@
     </div>
 
     <div>
-        <label for="meal_type" class="form-label">Meal Type</label>
+        <label for="meal_type" class="form-label">Meal</label>
         <select id="meal_type" name="meal_type" class="form-select">
-            <option value="">All meal types</option>
+            <option value="">All meals</option>
             {% for value, label in meal_types %}
                 <option value="{{ value }}" {% if selected_meal_type == value %}selected{% endif %}>
                     {{ label }}
@@ -77,77 +84,114 @@
     </div>
 
     <div>
-        <label for="sort" class="form-label">Sort By</label>
+        <label for="sort" class="form-label">Sort</label>
         <select id="sort" name="sort" class="form-select">
             <option value="title" {% if selected_sort == "title" %}selected{% endif %}>Title</option>
-            <option value="food_category" {% if selected_sort == "food_category" %}selected{% endif %}>Food Category</option>
+            <option value="newest" {% if selected_sort == "newest" %}selected{% endif %}>Newest</option>
+            <option value="favorites" {% if selected_sort == "favorites" %}selected{% endif %}>Favorites</option>
+            <option value="quickest" {% if selected_sort == "quickest" %}selected{% endif %}>Quickest</option>
+            <option value="food_category" {% if selected_sort == "food_category" %}selected{% endif %}>Category</option>
             <option value="meal_type" {% if selected_sort == "meal_type" %}selected{% endif %}>Meal Type</option>
         </select>
     </div>
 
     <div class="recipe-filter-actions">
-        <button type="submit" class="btn btn-outline-primary">Apply</button>
+        <button type="submit" class="btn btn-primary">
+            <i class="bi bi-funnel" aria-hidden="true"></i>
+            Apply
+        </button>
         <a class="btn btn-outline-secondary" href="{{ url_for('recipes') }}">Reset</a>
     </div>
 </form>
 
 {% if recipes %}
-<div class="row g-4">
+<div class="recipe-grid">
     {% for recipe in recipes %}
-    <div class="col-md-6 col-lg-4">
-        <div class="card recipe-card h-100 shadow-sm">
+    <article class="recipe-card">
+        <a class="recipe-card-media" href="{{ url_for('recipe_detail', recipe_id=recipe.id) }}">
             {% if recipe.photo_filename %}
-            <img
-                src="{{ url_for('static', filename='uploads/' ~ recipe.photo_filename) }}"
-                class="card-img-top recipe-card-photo"
-                alt="{{ recipe.title }}">
+                <img src="{{ url_for('static', filename='uploads/' ~ recipe.photo_filename) }}" alt="{{ recipe.title }}">
+            {% else %}
+                <span class="recipe-card-placeholder">
+                    <i class="bi bi-journal-bookmark" aria-hidden="true"></i>
+                </span>
             {% endif %}
-            <div class="card-body">
-                {% if recipe.food_category or recipe.meal_type_labels %}
-                <div class="recipe-meta mb-2">
-                    {% if recipe.food_category %}
-                        <span class="badge text-bg-light">{{ recipe.food_category }}</span>
-                    {% endif %}
-                    {% for meal_type in recipe.meal_type_labels %}
-                        <span class="badge text-bg-secondary">{{ meal_type }}</span>
-                    {% endfor %}
-                </div>
+            {% if recipe.is_favorite %}
+                <span class="favorite-chip" aria-label="Favorite recipe">
+                    <i class="bi bi-heart-fill" aria-hidden="true"></i>
+                </span>
+            {% endif %}
+        </a>
+
+        <div class="recipe-card-body">
+            <div class="recipe-meta">
+                {% if recipe.food_category %}
+                    <span class="badge badge-soft">{{ recipe.food_category }}</span>
                 {% endif %}
-                <h5 class="card-title">
-                    <a href="{{ url_for('recipe_detail', recipe_id=recipe.id) }}" class="recipe-card-link">
-                        {{ recipe.title }}
-                    </a>
-                </h5>
-                <p class="card-text text-muted">
-                    {{ recipe.description or "No description added." }}
-                </p>
+                {% for meal_type in recipe.meal_type_labels %}
+                    <span class="badge badge-muted">{{ meal_type }}</span>
+                {% endfor %}
             </div>
-            <div class="card-footer bg-white border-0 pt-0">
-                <button
-                    type="button"
-                    class="btn btn-outline-primary w-100 recipe-plan-button"
-                    data-bs-toggle="modal"
-                    data-bs-target="#addToMealPlanModal"
-                    data-recipe-id="{{ recipe.id }}"
-                    data-recipe-title="{{ recipe.title }}">
-                    Add to Meal Plan
-                </button>
+
+            <h2>
+                <a href="{{ url_for('recipe_detail', recipe_id=recipe.id) }}" class="recipe-card-link">{{ recipe.title }}</a>
+            </h2>
+            <p>{{ recipe.description or "No description added yet." }}</p>
+
+            <div class="recipe-card-facts">
+                {% if recipe.total_time %}
+                    <span><i class="bi bi-clock" aria-hidden="true"></i>{{ recipe.total_time }} min</span>
+                {% endif %}
+                {% if recipe.servings %}
+                    <span><i class="bi bi-people" aria-hidden="true"></i>{{ recipe.servings }} servings</span>
+                {% endif %}
+                <span><i class="bi bi-list-ul" aria-hidden="true"></i>{{ recipe.ingredients|length }} items</span>
             </div>
         </div>
-    </div>
+
+        <div class="recipe-card-actions">
+            <button
+                type="button"
+                class="btn btn-outline-primary recipe-plan-button"
+                data-bs-toggle="modal"
+                data-bs-target="#addToMealPlanModal"
+                data-recipe-id="{{ recipe.id }}"
+                data-recipe-title="{{ recipe.title }}">
+                <i class="bi bi-calendar-plus" aria-hidden="true"></i>
+                Add to Meal Plan
+            </button>
+            <div class="icon-actions" aria-label="Recipe quick actions">
+                <form method="POST" action="{{ url_for('toggle_favorite_recipe', recipe_id=recipe.id) }}">
+                    <input type="hidden" name="next" value="{{ request.full_path }}">
+                    <button class="btn btn-icon" type="submit" title="{{ 'Remove favorite' if recipe.is_favorite else 'Favorite' }}" aria-label="{{ 'Remove favorite' if recipe.is_favorite else 'Favorite' }}">
+                        <i class="bi {{ 'bi-heart-fill' if recipe.is_favorite else 'bi-heart' }}" aria-hidden="true"></i>
+                    </button>
+                </form>
+                <a class="btn btn-icon" href="{{ url_for('edit_recipe', recipe_id=recipe.id) }}" title="Edit" aria-label="Edit">
+                    <i class="bi bi-pencil" aria-hidden="true"></i>
+                </a>
+                <form method="POST" action="{{ url_for('duplicate_recipe', recipe_id=recipe.id) }}">
+                    <button class="btn btn-icon" type="submit" title="Duplicate" aria-label="Duplicate">
+                        <i class="bi bi-files" aria-hidden="true"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </article>
     {% endfor %}
 </div>
 {% else %}
-<div class="card shadow-sm">
-    <div class="card-body">
-        <p class="mb-0">
-            {% if search_query or selected_food_category or selected_meal_type %}
-                No recipes match those filters.
-            {% else %}
-                You do not have any recipes yet. Add one to get started.
-            {% endif %}
-        </p>
-    </div>
+<div class="empty-state">
+    <i class="bi bi-search-heart" aria-hidden="true"></i>
+    {% if search_query or selected_food_category or selected_meal_type %}
+        <h2>No recipes match those filters</h2>
+        <p>Try a broader search or clear the filters.</p>
+        <a class="btn btn-outline-primary" href="{{ url_for('recipes') }}">Clear Filters</a>
+    {% else %}
+        <h2>Your recipe library is empty</h2>
+        <p>Add a recipe or import a Recipe Vault export.</p>
+        <a class="btn btn-primary" href="{{ url_for('new_recipe') }}">Add Recipe</a>
+    {% endif %}
 </div>
 {% endif %}
 
@@ -161,7 +205,7 @@
             <div class="modal-body">
                 <input type="hidden" name="recipe_id" id="meal_plan_recipe_id">
                 <input type="hidden" name="next" value="{{ request.full_path }}">
-                <p class="text-muted mb-3" id="meal_plan_recipe_title"></p>
+                <p class="modal-context" id="meal_plan_recipe_title"></p>
 
                 <div class="mb-3">
                     <label for="meal_plan_day" class="form-label">Day</label>
@@ -188,7 +232,9 @@
         </form>
     </div>
 </div>
+{% endblock %}
 
+{% block scripts %}
 <script>
     const addToMealPlanModal = document.querySelector("#addToMealPlanModal");
 

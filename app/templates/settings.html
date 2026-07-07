@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}Settings{% endblock %}
+
+{% block content %}
+<div class="page-heading">
+  <div>
+    <p class="eyebrow">Account</p>
+    <h1>Settings</h1>
+    <p class="page-subtitle">Manage your profile and password.</p>
+  </div>
+</div>
+
+<div class="settings-grid">
+  <section class="surface-panel">
+    <div class="form-section-heading">
+      <i class="bi bi-person-circle" aria-hidden="true"></i>
+      <div>
+        <h2>Profile</h2>
+        <p>Your display username.</p>
+      </div>
+    </div>
+
+    <form method="POST" class="stacked-form">
+      <input type="hidden" name="action" value="profile">
+      <div>
+        <label for="username" class="form-label">Username</label>
+        <input class="form-control form-control-lg" type="text" id="username" name="username" value="{{ current_user.username }}" required>
+      </div>
+      <button class="btn btn-primary" type="submit" data-loading-text="Saving...">
+        <i class="bi bi-check2" aria-hidden="true"></i>
+        Save Profile
+      </button>
+    </form>
+  </section>
+
+  <section class="surface-panel">
+    <div class="form-section-heading">
+      <i class="bi bi-shield-lock" aria-hidden="true"></i>
+      <div>
+        <h2>Password</h2>
+        <p>Update your login password.</p>
+      </div>
+    </div>
+
+    <form method="POST" class="stacked-form">
+      <input type="hidden" name="action" value="password">
+      <div>
+        <label for="current_password" class="form-label">Current Password</label>
+        <input class="form-control form-control-lg" type="password" id="current_password" name="current_password" autocomplete="current-password" required>
+      </div>
+      <div>
+        <label for="new_password" class="form-label">New Password</label>
+        <input class="form-control form-control-lg" type="password" id="new_password" name="new_password" autocomplete="new-password" minlength="6" required>
+      </div>
+      <button class="btn btn-primary" type="submit" data-loading-text="Updating...">
+        <i class="bi bi-key" aria-hidden="true"></i>
+        Update Password
+      </button>
+    </form>
+  </section>
+</div>
+{% endblock %}

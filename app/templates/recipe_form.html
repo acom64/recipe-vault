@@ -3,159 +3,254 @@
 {% block title %}{{ "Edit Recipe" if recipe else "Add Recipe" }}{% endblock %}
 
 {% block content %}
-<div class="card shadow-sm">
-  <div class="card-body p-3 p-md-4">
-    <h1 class="mb-4">{{ "Edit Recipe" if recipe else "Add Recipe" }}</h1>
-
-    <form method="POST" enctype="multipart/form-data">
-      <div class="mb-3">
-        <label for="title" class="form-label">Recipe Title</label>
-        <input
-          type="text"
-          class="form-control form-control-lg"
-          name="title"
-          id="title"
-          value="{{ recipe.title if recipe else '' }}"
-          required>
-      </div>
-
-      <div class="mb-3">
-        <label for="description" class="form-label">Description</label>
-        <textarea
-          class="form-control"
-          name="description"
-          id="description"
-          rows="3">{{ recipe.description if recipe else '' }}</textarea>
-      </div>
-
-      <div class="row g-3 mb-3">
-        <div class="col-md-6">
-          <label for="food_category" class="form-label">Food Category</label>
-          <input
-            type="text"
-            class="form-control"
-            name="food_category"
-            id="food_category"
-            list="food-category-options"
-            value="{{ recipe.food_category if recipe else '' }}"
-            placeholder="Sandwiches, salads, bowls, soups">
-          <datalist id="food-category-options">
-            {% for category in food_categories %}
-              <option value="{{ category }}"></option>
-            {% endfor %}
-          </datalist>
-        </div>
-
-        <div class="col-md-6">
-          <label for="meal_type_0" class="form-label">Meal Type</label>
-          <div class="meal-type-picker" data-meal-type-picker>
-            {% set selected_values = selected_meal_types if selected_meal_types else [""] %}
-            {% for selected_value in selected_values %}
-              <div class="meal-type-row">
-                <select class="form-select" name="meal_type" id="meal_type_{{ loop.index0 }}">
-                  <option value="">Select a meal type</option>
-                  {% for value, label in meal_types %}
-                    <option value="{{ value }}" {% if selected_value == value %}selected{% endif %}>
-                      {{ label }}
-                    </option>
-                  {% endfor %}
-                </select>
-                {% if loop.first %}
-                  <button type="button" class="btn btn-outline-primary meal-type-add" aria-label="Add another meal type">
-                    +
-                  </button>
-                {% else %}
-                  <button type="button" class="btn btn-outline-secondary meal-type-remove" aria-label="Remove meal type">
-                    &times;
-                  </button>
-                {% endif %}
-              </div>
-            {% endfor %}
-          </div>
-        </div>
-      </div>
-
-      <div class="mb-3">
-        <label for="ingredients" class="form-label">Ingredients</label>
-        <textarea
-          class="form-control"
-          name="ingredients"
-          id="ingredients"
-          rows="6"
-          placeholder="2 cups flour&#10;3 eggs&#10;salt&#10;pepper to taste"
-          required>{{ ingredients_text }}</textarea>
-      </div>
-
-      <div class="mb-4">
-        <label for="instructions" class="form-label">Instructions</label>
-        <div class="markdown-toolbar" aria-label="Instructions formatting options">
-          <button type="button" class="btn btn-outline-secondary btn-sm" data-format="heading" title="Heading">H</button>
-          <button type="button" class="btn btn-outline-secondary btn-sm" data-format="bold" title="Bold">B</button>
-          <button type="button" class="btn btn-outline-secondary btn-sm" data-format="italic" title="Italic">I</button>
-          <button type="button" class="btn btn-outline-secondary btn-sm" data-format="bullet" title="Bulleted list">&bull;</button>
-          <button type="button" class="btn btn-outline-secondary btn-sm" data-format="number" title="Numbered list">1.</button>
-          <button type="button" class="btn btn-outline-secondary btn-sm" data-format="left" title="Align left">&larr;</button>
-          <button type="button" class="btn btn-outline-secondary btn-sm" data-format="center" title="Align center">&harr;</button>
-          <button type="button" class="btn btn-outline-secondary btn-sm" data-format="right" title="Align right">&rarr;</button>
-        </div>
-        <textarea
-          class="form-control"
-          name="instructions"
-          id="instructions"
-          rows="6">{{ recipe.instructions if recipe else '' }}</textarea>
-      </div>
-
-      <div class="row g-3 mb-3">
-        <div class="col-md-6">
-          <label for="photo" class="form-label">Recipe Photo</label>
-          <div class="photo-upload-picker">
-            <label class="btn btn-light photo-upload-button" for="photo">
-              Choose Photo
-            </label>
-            <span class="photo-upload-file text-muted" data-empty-label="No recipe photo selected">
-              No recipe photo selected
-            </span>
-            <input
-              type="file"
-              class="visually-hidden photo-upload-input"
-              name="photo"
-              id="photo"
-              accept="image/png,image/jpeg,image/gif,image/webp">
-          </div>
-          {% if recipe and recipe.photo_filename %}
-            <div class="form-text">Current photo will stay unless you choose a new one.</div>
-          {% endif %}
-        </div>
-
-        <div class="col-md-6">
-          <label for="chef_photo" class="form-label">Chef Photo</label>
-          <div class="photo-upload-picker">
-            <label class="btn btn-light photo-upload-button" for="chef_photo">
-              Choose Photo
-            </label>
-            <span class="photo-upload-file text-muted" data-empty-label="No chef photo selected">
-              No chef photo selected
-            </span>
-            <input
-              type="file"
-              class="visually-hidden photo-upload-input"
-              name="chef_photo"
-              id="chef_photo"
-              accept="image/png,image/jpeg,image/gif,image/webp">
-          </div>
-          {% if recipe and recipe.chef_photo_filename %}
-            <div class="form-text">Current chef photo will stay unless you choose a new one.</div>
-          {% endif %}
-        </div>
-      </div>
-
-      <button type="submit" class="btn btn-primary btn-lg w-100 w-md-auto">
-        {{ "Save Changes" if recipe else "Save Recipe" }}
-      </button>
-    </form>
+<div class="page-heading">
+  <div>
+    <p class="eyebrow">{{ "Recipe Editor" if recipe else "New Recipe" }}</p>
+    <h1>{{ "Edit Recipe" if recipe else "Add Recipe" }}</h1>
+    <p class="page-subtitle">Ingredients can stay simple: one item per line.</p>
+  </div>
+  <div class="page-actions">
+    <a href="{{ url_for('recipe_detail', recipe_id=recipe.id) if recipe else url_for('recipes') }}" class="btn btn-outline-secondary">
+      <i class="bi bi-arrow-left" aria-hidden="true"></i>
+      {{ "Back to Recipe" if recipe else "Back to Library" }}
+    </a>
   </div>
 </div>
 
+<form method="POST" enctype="multipart/form-data" class="recipe-editor" data-editor-form>
+  <section class="surface-panel editor-main">
+    <div class="form-section-heading">
+      <i class="bi bi-journal-text" aria-hidden="true"></i>
+      <div>
+        <h2>Recipe Details</h2>
+        <p>Name, organize, and describe the recipe.</p>
+      </div>
+    </div>
+
+    <div class="mb-3">
+      <label for="title" class="form-label">Recipe Title</label>
+      <input
+        type="text"
+        class="form-control form-control-lg"
+        name="title"
+        id="title"
+        value="{{ form_values.title }}"
+        autocomplete="off"
+        required>
+    </div>
+
+    <div class="mb-3">
+      <label for="description" class="form-label">Description</label>
+      <textarea
+        class="form-control"
+        name="description"
+        id="description"
+        rows="3">{{ form_values.description }}</textarea>
+    </div>
+
+    <div class="editor-grid">
+      <div>
+        <label for="food_category" class="form-label">Category</label>
+        <input
+          type="text"
+          class="form-control"
+          name="food_category"
+          id="food_category"
+          list="food-category-options"
+          value="{{ form_values.food_category }}"
+          placeholder="Soups, bowls, tacos">
+        <datalist id="food-category-options">
+          {% for category in food_categories %}
+            <option value="{{ category }}"></option>
+          {% endfor %}
+        </datalist>
+      </div>
+
+      <div>
+        <label for="meal_type_0" class="form-label">Meal Type</label>
+        <div class="meal-type-picker" data-meal-type-picker>
+          {% set selected_values = selected_meal_types if selected_meal_types else [""] %}
+          {% for selected_value in selected_values %}
+            <div class="meal-type-row">
+              <select class="form-select" name="meal_type" id="meal_type_{{ loop.index0 }}">
+                <option value="">Select a meal type</option>
+                {% for value, label in meal_types %}
+                  <option value="{{ value }}" {% if selected_value == value %}selected{% endif %}>
+                    {{ label }}
+                  </option>
+                {% endfor %}
+              </select>
+              {% if loop.first %}
+                <button type="button" class="btn btn-outline-primary meal-type-add" aria-label="Add another meal type">
+                  <i class="bi bi-plus-lg" aria-hidden="true"></i>
+                </button>
+              {% else %}
+                <button type="button" class="btn btn-outline-secondary meal-type-remove" aria-label="Remove meal type">
+                  <i class="bi bi-x-lg" aria-hidden="true"></i>
+                </button>
+              {% endif %}
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <div class="editor-grid three mt-3">
+      <div>
+        <label for="prep_time" class="form-label">Prep Time</label>
+        <div class="input-suffix">
+          <input type="number" min="0" inputmode="numeric" class="form-control" name="prep_time" id="prep_time" value="{{ form_values.prep_time }}">
+          <span>min</span>
+        </div>
+      </div>
+      <div>
+        <label for="cook_time" class="form-label">Cook Time</label>
+        <div class="input-suffix">
+          <input type="number" min="0" inputmode="numeric" class="form-control" name="cook_time" id="cook_time" value="{{ form_values.cook_time }}">
+          <span>min</span>
+        </div>
+      </div>
+      <div>
+        <label for="servings" class="form-label">Servings</label>
+        <input type="number" min="1" inputmode="numeric" class="form-control" name="servings" id="servings" value="{{ form_values.servings }}">
+      </div>
+    </div>
+
+    <div class="form-check favorite-check mt-3">
+      <input class="form-check-input" type="checkbox" value="1" id="is_favorite" name="is_favorite" {% if form_values.is_favorite %}checked{% endif %}>
+      <label class="form-check-label" for="is_favorite">
+        <i class="bi bi-heart" aria-hidden="true"></i>
+        Favorite
+      </label>
+    </div>
+  </section>
+
+  <section class="surface-panel editor-main">
+    <div class="form-section-heading">
+      <i class="bi bi-list-check" aria-hidden="true"></i>
+      <div>
+        <h2>Ingredients</h2>
+        <p>Beginner-friendly lines like 2 cups flour, 1 onion, or salt.</p>
+      </div>
+    </div>
+
+    <label for="ingredients" class="form-label">Ingredients</label>
+    <textarea
+      class="form-control ingredient-input"
+      name="ingredients"
+      id="ingredients"
+      rows="8"
+      placeholder="2 cups flour&#10;1 onion&#10;salt&#10;1 tbsp olive oil"
+      required>{{ ingredients_text }}</textarea>
+  </section>
+
+  <section class="surface-panel editor-main">
+    <div class="form-section-heading">
+      <i class="bi bi-card-checklist" aria-hidden="true"></i>
+      <div>
+        <h2>Instructions</h2>
+        <p>Use the toolbar for structure and emphasis.</p>
+      </div>
+    </div>
+
+    <label for="instructions" class="form-label">Instructions</label>
+    <div class="markdown-toolbar" aria-label="Instructions formatting options">
+      <button type="button" class="btn btn-outline-secondary btn-sm" data-format="heading" title="Heading" aria-label="Heading"><strong>H</strong></button>
+      <button type="button" class="btn btn-outline-secondary btn-sm" data-format="bold" title="Bold" aria-label="Bold"><strong>B</strong></button>
+      <button type="button" class="btn btn-outline-secondary btn-sm" data-format="italic" title="Italic" aria-label="Italic"><em>I</em></button>
+      <button type="button" class="btn btn-outline-secondary btn-sm" data-format="bullet" title="Bulleted list" aria-label="Bulleted list"><i class="bi bi-list-ul" aria-hidden="true"></i></button>
+      <button type="button" class="btn btn-outline-secondary btn-sm" data-format="number" title="Numbered list" aria-label="Numbered list"><i class="bi bi-list-ol" aria-hidden="true"></i></button>
+      <button type="button" class="btn btn-outline-secondary btn-sm" data-format="left" title="Align left" aria-label="Align left"><i class="bi bi-text-left" aria-hidden="true"></i></button>
+      <button type="button" class="btn btn-outline-secondary btn-sm" data-format="center" title="Align center" aria-label="Align center"><i class="bi bi-text-center" aria-hidden="true"></i></button>
+      <button type="button" class="btn btn-outline-secondary btn-sm" data-format="right" title="Align right" aria-label="Align right"><i class="bi bi-text-right" aria-hidden="true"></i></button>
+    </div>
+    <textarea
+      class="form-control"
+      name="instructions"
+      id="instructions"
+      rows="8">{{ form_values.instructions }}</textarea>
+  </section>
+
+  <section class="surface-panel editor-main">
+    <div class="form-section-heading">
+      <i class="bi bi-images" aria-hidden="true"></i>
+      <div>
+        <h2>Photos</h2>
+        <p>Optional images for the recipe and chef note.</p>
+      </div>
+    </div>
+
+    <div class="editor-grid">
+      <div>
+        <label for="photo" class="form-label">Recipe Photo</label>
+        <div class="photo-upload-picker">
+          <label class="btn btn-light photo-upload-button" for="photo">
+            <i class="bi bi-image" aria-hidden="true"></i>
+            Choose Photo
+          </label>
+          <span class="photo-upload-file text-muted" data-empty-label="No recipe photo selected">
+            No recipe photo selected
+          </span>
+          <input
+            type="file"
+            class="visually-hidden photo-upload-input"
+            name="photo"
+            id="photo"
+            accept="image/png,image/jpeg,image/gif,image/webp">
+        </div>
+        {% if recipe and recipe.photo_filename %}
+          <div class="form-text">Current photo stays unless you choose a new one.</div>
+        {% endif %}
+      </div>
+
+      <div>
+        <label for="chef_photo" class="form-label">Chef Photo</label>
+        <div class="photo-upload-picker">
+          <label class="btn btn-light photo-upload-button" for="chef_photo">
+            <i class="bi bi-person-square" aria-hidden="true"></i>
+            Choose Photo
+          </label>
+          <span class="photo-upload-file text-muted" data-empty-label="No chef photo selected">
+            No chef photo selected
+          </span>
+          <input
+            type="file"
+            class="visually-hidden photo-upload-input"
+            name="chef_photo"
+            id="chef_photo"
+            accept="image/png,image/jpeg,image/gif,image/webp">
+        </div>
+        {% if recipe and recipe.chef_photo_filename %}
+          <div class="form-text">Current chef photo stays unless you choose a new one.</div>
+        {% endif %}
+      </div>
+    </div>
+  </section>
+
+  <section class="surface-panel editor-main">
+    <div class="form-section-heading">
+      <i class="bi bi-sticky" aria-hidden="true"></i>
+      <div>
+        <h2>Notes</h2>
+        <p>Private notes for substitutions, source links, or family preferences.</p>
+      </div>
+    </div>
+
+    <label for="notes" class="form-label">Notes</label>
+    <textarea class="form-control" name="notes" id="notes" rows="4">{{ form_values.notes }}</textarea>
+  </section>
+
+  <div class="editor-submit-bar">
+    <a class="btn btn-outline-secondary" href="{{ url_for('recipe_detail', recipe_id=recipe.id) if recipe else url_for('recipes') }}">Cancel</a>
+    <button type="submit" class="btn btn-primary btn-lg" data-loading-text="Saving...">
+      <i class="bi bi-check2" aria-hidden="true"></i>
+      {{ "Save Changes" if recipe else "Save Recipe" }}
+    </button>
+  </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
 <script>
   const instructions = document.querySelector("#instructions");
   const toolbar = document.querySelector(".markdown-toolbar");
@@ -216,7 +311,7 @@
     select.value = "";
     button.className = "btn btn-outline-secondary meal-type-remove";
     button.setAttribute("aria-label", "Remove meal type");
-    button.textContent = "\u00d7";
+    button.innerHTML = '<i class="bi bi-x-lg" aria-hidden="true"></i>';
 
     return row;
   };

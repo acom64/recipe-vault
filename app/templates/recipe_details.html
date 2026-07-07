@@ -3,96 +3,162 @@
 {% block title %}{{ recipe.title }}{% endblock %}
 
 {% block content %}
-<div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-3">
+<div class="detail-toolbar">
   <a href="{{ url_for('recipes') }}" class="btn btn-outline-secondary recipe-back-link">
-    <span aria-hidden="true">&larr;</span>
+    <i class="bi bi-arrow-left" aria-hidden="true"></i>
     Back to Recipes
   </a>
 
-  <div class="d-flex flex-column flex-sm-row gap-2 recipe-actions">
-    <a href="{{ url_for('edit_recipe', recipe_id=recipe.id) }}" class="btn btn-outline-primary">
+  <div class="detail-actions">
+    <form method="POST" action="{{ url_for('toggle_favorite_recipe', recipe_id=recipe.id) }}">
+      <input type="hidden" name="next" value="{{ request.full_path }}">
+      <button type="submit" class="btn btn-outline-primary">
+        <i class="bi {{ 'bi-heart-fill' if recipe.is_favorite else 'bi-heart' }}" aria-hidden="true"></i>
+        {{ "Favorited" if recipe.is_favorite else "Favorite" }}
+      </button>
+    </form>
+    <form method="POST" action="{{ url_for('duplicate_recipe', recipe_id=recipe.id) }}">
+      <button type="submit" class="btn btn-outline-primary">
+        <i class="bi bi-files" aria-hidden="true"></i>
+        Duplicate
+      </button>
+    </form>
+    <a href="{{ url_for('edit_recipe', recipe_id=recipe.id) }}" class="btn btn-primary">
+      <i class="bi bi-pencil" aria-hidden="true"></i>
       Edit
     </a>
-
-    <form action="{{ url_for('delete_recipe', recipe_id=recipe.id) }}" method="POST" class="d-inline">
-      <button type="submit" class="btn btn-outline-danger w-100" onclick="return confirm('Delete this recipe?');">
+    <form action="{{ url_for('delete_recipe', recipe_id=recipe.id) }}" method="POST" data-confirm="Delete this recipe?">
+      <button type="submit" class="btn btn-outline-danger">
+        <i class="bi bi-trash" aria-hidden="true"></i>
         Delete
       </button>
     </form>
   </div>
 </div>
 
-<div class="card shadow-sm">
-  <div class="card-body p-3 p-md-4">
-    <div class="recipe-detail-layout">
-      <div class="recipe-detail-content">
-        <h1 class="mb-1">{{ recipe.title }}</h1>
-
-        {% if recipe.food_category or recipe.meal_type_labels %}
-          <div class="recipe-meta mt-2 mb-3">
-            {% if recipe.food_category %}
-              <span class="badge text-bg-light">{{ recipe.food_category }}</span>
-            {% endif %}
-            {% for meal_type in recipe.meal_type_labels %}
-              <span class="badge text-bg-secondary">{{ meal_type }}</span>
-            {% endfor %}
-          </div>
+<article class="recipe-detail-shell">
+  <header class="recipe-detail-hero">
+    <div class="recipe-detail-copy">
+      <div class="recipe-meta mb-3">
+        {% if recipe.food_category %}
+          <span class="badge badge-soft">{{ recipe.food_category }}</span>
         {% endif %}
+        {% for meal_type in recipe.meal_type_labels %}
+          <span class="badge badge-muted">{{ meal_type }}</span>
+        {% endfor %}
+      </div>
 
-        {% if recipe.description %}
-          <p class="text-muted mb-4">{{ recipe.description }}</p>
+      <h1>{{ recipe.title }}</h1>
+
+      {% if recipe.description %}
+        <p>{{ recipe.description }}</p>
+      {% endif %}
+
+      <div class="detail-facts">
+        {% if recipe.prep_time %}
+          <span><i class="bi bi-stopwatch" aria-hidden="true"></i>{{ recipe.prep_time }} min prep</span>
         {% endif %}
+        {% if recipe.cook_time %}
+          <span><i class="bi bi-fire" aria-hidden="true"></i>{{ recipe.cook_time }} min cook</span>
+        {% endif %}
+        {% if recipe.servings %}
+          <span><i class="bi bi-people" aria-hidden="true"></i>{{ recipe.servings }} servings</span>
+        {% endif %}
+        <span><i class="bi bi-list-ul" aria-hidden="true"></i>{{ recipe.ingredients|length }} ingredients</span>
+      </div>
+    </div>
 
-        <h4 class="mt-4">Ingredients</h4>
-        <ul class="list-group list-group-flush mb-4">
-          {% for ingredient in recipe.ingredients %}
-            <li class="list-group-item px-0">
-              {% if ingredient.quantity %}
-                {{ ingredient.quantity }}
+    <div class="recipe-detail-photo-wrap">
+      {% if recipe.photo_filename %}
+        <img
+          src="{{ url_for('static', filename='uploads/' ~ recipe.photo_filename) }}"
+          class="recipe-detail-photo"
+          alt="{{ recipe.title }}">
+      {% else %}
+        <div class="recipe-detail-photo placeholder-photo">
+          <i class="bi bi-journal-bookmark" aria-hidden="true"></i>
+        </div>
+      {% endif %}
+    </div>
+  </header>
+
+  <div class="recipe-detail-grid">
+    <section class="surface-panel">
+      <div class="section-heading">
+        <div>
+          <h2>Ingredients</h2>
+          <p>For this recipe</p>
+        </div>
+      </div>
+      <ul class="ingredient-list">
+        {% for ingredient in recipe.ingredients %}
+          <li>
+            <span>
+              {% if ingredient.quantity is not none %}
+                {{ ingredient.quantity|quantity }}
               {% endif %}
               {% if ingredient.unit %}
                 {{ ingredient.unit }}
               {% endif %}
-              {{ ingredient.name }}
-            </li>
-          {% endfor %}
-        </ul>
+            </span>
+            <strong>{{ ingredient.name }}</strong>
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
 
-        {% if recipe.instructions %}
-          <h4 class="mt-4">Instructions</h4>
-          <div class="recipe-instructions">
-            {{ rendered_instructions }}
-          </div>
-        {% endif %}
-
-        {% if recipe.chef_photo_filename %}
-          <div class="dropdown mt-3 chef-photo-dropdown">
-            <button
-              class="btn btn-outline-secondary btn-sm dropdown-toggle chef-photo-button"
-              type="button"
-              data-bs-toggle="dropdown"
-              aria-expanded="false">
-              Chef Photo
-            </button>
-            <div class="dropdown-menu p-3 chef-photo-menu">
-              <img
-                src="{{ url_for('static', filename='uploads/' ~ recipe.chef_photo_filename) }}"
-                class="chef-photo"
-                alt="Chef for {{ recipe.title }}">
-            </div>
-          </div>
-        {% endif %}
+    <section class="surface-panel">
+      <div class="section-heading">
+        <div>
+          <h2>Instructions</h2>
+          <p>Cooking steps</p>
+        </div>
       </div>
 
-      {% if recipe.photo_filename %}
-        <div class="recipe-detail-photo-wrap">
-          <img
-            src="{{ url_for('static', filename='uploads/' ~ recipe.photo_filename) }}"
-            class="recipe-detail-photo"
-            alt="{{ recipe.title }}">
+      {% if recipe.instructions %}
+        <div class="recipe-instructions">
+          {{ rendered_instructions }}
+        </div>
+      {% else %}
+        <div class="empty-state compact">
+          <i class="bi bi-card-text" aria-hidden="true"></i>
+          <h3>No instructions saved</h3>
         </div>
       {% endif %}
-    </div>
+    </section>
   </div>
-</div>
+
+  {% if recipe.notes or recipe.chef_photo_filename %}
+  <section class="surface-panel mt-4">
+    <div class="section-heading">
+      <div>
+        <h2>Notes</h2>
+        <p>Private recipe context</p>
+      </div>
+    </div>
+
+    {% if recipe.notes %}
+      <div class="recipe-notes">{{ recipe.notes }}</div>
+    {% endif %}
+
+    {% if recipe.chef_photo_filename %}
+      <div class="dropdown mt-3 chef-photo-dropdown">
+        <button
+          class="btn btn-outline-secondary btn-sm dropdown-toggle chef-photo-button"
+          type="button"
+          data-bs-toggle="dropdown"
+          aria-expanded="false">
+          Chef Photo
+        </button>
+        <div class="dropdown-menu p-3 chef-photo-menu">
+          <img
+            src="{{ url_for('static', filename='uploads/' ~ recipe.chef_photo_filename) }}"
+            class="chef-photo"
+            alt="Chef for {{ recipe.title }}">
+        </div>
+      </div>
+    {% endif %}
+  </section>
+  {% endif %}
+</article>
 {% endblock %}

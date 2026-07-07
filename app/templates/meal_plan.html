@@ -3,133 +3,168 @@
 {% block title %}Meal Plan{% endblock %}
 
 {% block content %}
-<h1 class="mb-4">Weekly Meal Planner</h1>
-
-<div class="row g-4">
-  <div class="col-md-6">
-    <div class="card shadow-sm">
-      <div class="card-body p-3 p-md-4">
-        <h4 class="mb-3">Choose Meals</h4>
-        {% if has_draft %}
-          <p class="alert alert-info py-2 mb-3">Your unsaved meal plan draft has been restored.</p>
-        {% endif %}
-
-        <form method="POST" id="meal-plan-form" data-draft-url="{{ url_for('save_meal_plan_draft_route') }}">
-          <div class="meal-plan-toggles mb-3">
-            <div class="form-check">
-              <input
-                class="form-check-input meal-slot-toggle"
-                type="checkbox"
-                value="1"
-                id="include_breakfast"
-                name="include_breakfast"
-                data-meal-slot="breakfast"
-                {% if show_breakfast %}checked{% endif %}
-                >
-              <label class="form-check-label" for="include_breakfast">Plan breakfasts</label>
-            </div>
-
-            <div class="form-check">
-              <input
-                class="form-check-input meal-slot-toggle"
-                type="checkbox"
-                value="1"
-                id="include_lunch"
-                name="include_lunch"
-                data-meal-slot="lunch"
-                {% if show_lunch %}checked{% endif %}
-                >
-              <label class="form-check-label" for="include_lunch">Plan lunches</label>
-            </div>
-          </div>
-
-          <div class="meal-plan-list">
-            {% for day in days %}
-              <section class="meal-plan-day-group" aria-labelledby="meal-plan-day-{{ day|lower }}">
-                <h5 id="meal-plan-day-{{ day|lower }}" class="meal-plan-day">{{ day }}</h5>
-
-                <div class="meal-plan-day-slots">
-                  {% for slot, label in meal_plan_slots %}
-                    {% set selected_recipe_id = planned_lookup.get((day, slot)) %}
-                    <div class="meal-slot meal-slot-{{ slot }}" {% if (slot == "breakfast" and not show_breakfast) or (slot == "lunch" and not show_lunch) %}hidden{% endif %}>
-                      <label for="{{ slot }}_{{ day|lower }}" class="form-label">{{ label }}</label>
-                      <select id="{{ slot }}_{{ day|lower }}" name="{{ slot }}_{{ day|lower }}" class="form-select">
-                        <option value="" selected>Select a recipe</option>
-
-                        {% for recipe in recipes %}
-                          <option value="{{ recipe.id }}" {% if selected_recipe_id == recipe.id %}selected{% endif %}>
-                            {{ recipe.title }}
-                          </option>
-                        {% endfor %}
-                      </select>
-                    </div>
-                  {% endfor %}
-                </div>
-              </section>
-            {% endfor %}
-          </div>
-
-          <button type="submit" class="btn btn-primary btn-lg w-100 w-md-auto mt-3">
-            Save Meal Plan
-          </button>
-        </form>
-      </div>
-    </div>
+<div class="page-heading">
+  <div>
+    <p class="eyebrow">Weekly Planner</p>
+    <h1>Meal Planner</h1>
+    <p class="page-subtitle">Monday through Sunday, saved to your account.</p>
   </div>
-
-  <div class="col-md-6">
-    <div class="card shadow-sm">
-      <div class="card-body p-3 p-md-4">
-        <h4 class="mb-3">Current Plan</h4>
-
-        {% if planned_meals %}
-          {% for planned_meal in planned_meals %}
-            <p class="mb-2">
-              <strong>{{ planned_meal.day }}</strong>
-              -
-              {{ meal_type_label(planned_meal.meal_type) }}:
-              {{ planned_meal.recipe.title }}
-            </p>
-          {% endfor %}
-        {% else %}
-          <p class="text-muted mb-0">No meals planned yet.</p>
-        {% endif %}
-      </div>
-    </div>
-
-    <div class="card shadow-sm mt-4">
-      <div class="card-body p-3 p-md-4">
-        <div class="d-flex flex-column flex-sm-row gap-2 justify-content-between align-items-sm-center mb-3">
-          <h4 class="mb-0">Shopping List</h4>
-          <a class="btn btn-outline-primary" href="{{ url_for('shopping_list') }}">
-            Open Shopping Checklist
-          </a>
-        </div>
-
-        {% if planned_ingredients %}
-          <ul class="mb-0">
-            {% for ingredient in planned_ingredients %}
-              <li class="mb-2">
-                {% if ingredient.quantity is not none %}
-                  {{ ingredient.quantity }}
-                {% endif %}
-
-                {% if ingredient.unit %}
-                  {{ ingredient.unit }}
-                {% endif %}
-
-                {{ ingredient.name }}
-              </li>
-            {% endfor %}
-          </ul>
-        {% else %}
-          <p class="text-muted mb-0">No shopping items yet.</p>
-        {% endif %}
-      </div>
-    </div>
+  <div class="page-actions">
+    <a class="btn btn-outline-primary" href="{{ url_for('recipes') }}">
+      <i class="bi bi-collection" aria-hidden="true"></i>
+      Recipes
+    </a>
+    <a class="btn btn-primary" href="{{ url_for('shopping_list') }}">
+      <i class="bi bi-bag-check" aria-hidden="true"></i>
+      Shopping List
+    </a>
   </div>
 </div>
 
+{% if has_draft %}
+  <div class="alert alert-info restored-draft">Your unsaved meal plan draft has been restored.</div>
+{% endif %}
+
+{% if not recipes %}
+  <div class="empty-state">
+    <i class="bi bi-calendar2-plus" aria-hidden="true"></i>
+    <h2>No recipes to plan yet</h2>
+    <p>Add a recipe first, then come back to build the week.</p>
+    <a class="btn btn-primary" href="{{ url_for('new_recipe') }}">Add Recipe</a>
+  </div>
+{% else %}
+<div class="planner-layout">
+  <section class="surface-panel planner-board">
+    <div class="section-heading">
+      <div>
+        <h2>Choose Meals</h2>
+        <p>{{ recipes|length }} available {{ "recipe" if recipes|length == 1 else "recipes" }}</p>
+      </div>
+    </div>
+
+    <form method="POST" id="meal-plan-form" data-draft-url="{{ url_for('save_meal_plan_draft_route') }}">
+      <div class="meal-plan-toggles">
+        <div class="form-check form-switch">
+          <input
+            class="form-check-input meal-slot-toggle"
+            type="checkbox"
+            value="1"
+            id="include_breakfast"
+            name="include_breakfast"
+            data-meal-slot="breakfast"
+            {% if show_breakfast %}checked{% endif %}>
+          <label class="form-check-label" for="include_breakfast">Plan breakfasts</label>
+        </div>
+
+        <div class="form-check form-switch">
+          <input
+            class="form-check-input meal-slot-toggle"
+            type="checkbox"
+            value="1"
+            id="include_lunch"
+            name="include_lunch"
+            data-meal-slot="lunch"
+            {% if show_lunch %}checked{% endif %}>
+          <label class="form-check-label" for="include_lunch">Plan lunches</label>
+        </div>
+      </div>
+
+      <div class="meal-plan-list">
+        {% for day in days %}
+          <section class="meal-plan-day-group" aria-labelledby="meal-plan-day-{{ day|lower }}">
+            <div class="meal-plan-day-header">
+              <h3 id="meal-plan-day-{{ day|lower }}" class="meal-plan-day">{{ day }}</h3>
+            </div>
+
+            <div class="meal-plan-day-slots">
+              {% for slot, label in meal_plan_slots %}
+                {% set selected_recipe_id = planned_lookup.get((day, slot)) %}
+                <div class="meal-slot meal-slot-{{ slot }}" {% if (slot == "breakfast" and not show_breakfast) or (slot == "lunch" and not show_lunch) %}hidden{% endif %}>
+                  <label for="{{ slot }}_{{ day|lower }}" class="form-label">{{ label }}</label>
+                  <select id="{{ slot }}_{{ day|lower }}" name="{{ slot }}_{{ day|lower }}" class="form-select">
+                    <option value="" selected>Select a recipe</option>
+
+                    {% for recipe in recipes %}
+                      <option value="{{ recipe.id }}" {% if selected_recipe_id == recipe.id %}selected{% endif %}>
+                        {{ recipe.title }}
+                      </option>
+                    {% endfor %}
+                  </select>
+                </div>
+              {% endfor %}
+            </div>
+          </section>
+        {% endfor %}
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-lg planner-save" data-loading-text="Saving...">
+        <i class="bi bi-check2" aria-hidden="true"></i>
+        Save Meal Plan
+      </button>
+    </form>
+  </section>
+
+  <aside class="planner-side">
+    <section class="surface-panel">
+      <div class="section-heading">
+        <div>
+          <h2>Current Plan</h2>
+          <p>{{ planned_meals|length }} saved {{ "meal" if planned_meals|length == 1 else "meals" }}</p>
+        </div>
+      </div>
+
+      {% if planned_meals %}
+        <div class="current-plan-list">
+          {% for planned_meal in planned_meals %}
+            <div class="current-plan-item">
+              <span>{{ planned_meal.day }}</span>
+              <strong>{{ meal_type_label(planned_meal.meal_type) }}: {{ planned_meal.recipe.title }}</strong>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="empty-state compact">
+          <i class="bi bi-calendar2" aria-hidden="true"></i>
+          <h3>No saved meals</h3>
+        </div>
+      {% endif %}
+    </section>
+
+    <section class="surface-panel">
+      <div class="section-heading">
+        <div>
+          <h2>Shopping List</h2>
+          <p>{{ shopping_progress.total }} merged {{ "item" if shopping_progress.total == 1 else "items" }}</p>
+        </div>
+        <a class="btn btn-sm btn-outline-primary" href="{{ url_for('shopping_list') }}">
+          Open
+        </a>
+      </div>
+
+      {% if planned_ingredients %}
+        <div class="progress app-progress mb-3" role="progressbar" aria-label="Shopping progress" aria-valuenow="{{ shopping_progress.percent }}" aria-valuemin="0" aria-valuemax="100">
+          <div class="progress-bar" style="width: {{ shopping_progress.percent }}%"></div>
+        </div>
+        <ul class="quick-list">
+          {% for ingredient in planned_ingredients[:8] %}
+            <li>
+              {% if ingredient.quantity is not none %}{{ ingredient.quantity|quantity }} {% endif %}{% if ingredient.unit %}{{ ingredient.unit }} {% endif %}{{ ingredient.name }}
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <div class="empty-state compact">
+          <i class="bi bi-basket" aria-hidden="true"></i>
+          <h3>No shopping items yet</h3>
+        </div>
+      {% endif %}
+    </section>
+  </aside>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
 <script>
   document.querySelectorAll(".meal-slot-toggle").forEach((toggle) => {
     const slot = toggle.dataset.mealSlot;
