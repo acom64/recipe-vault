@@ -559,8 +559,7 @@ def register_routes(app):
                 current_group = item["group"]
                 lines.extend([current_group, "-" * len(current_group)])
 
-            prefix = "[x]" if item.get("checked") else "[ ]"
-            lines.append(f"{prefix} {ingredient_line(item)}")
+            lines.append(ingredient_line(item))
 
         return "\n".join(lines)
 

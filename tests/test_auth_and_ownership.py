@@ -548,6 +548,8 @@ class AuthAndOwnershipTests(unittest.TestCase):
         self.assertIn(b"Produce", response.data)
         self.assertIn(b"onion", response.data)
         self.assertIn(b"Shopping Mode", response.data)
+        self.assertNotIn(b"[ ] onion", response.data)
+        self.assertNotIn(b"[x] onion", response.data)
 
         update_response = self.client.post(
             "/shopping-list/item",
