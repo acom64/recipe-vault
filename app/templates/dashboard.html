@@ -22,34 +22,34 @@
 </div>
 
 <section class="stat-grid" aria-label="Dashboard totals">
-    <div class="stat-card">
+    <a class="stat-card" href="{{ url_for('recipes') }}" aria-label="View all recipes">
         <span class="stat-icon stat-green"><i class="bi bi-collection" aria-hidden="true"></i></span>
         <div>
             <strong>{{ recipe_count }}</strong>
             <span>Recipes</span>
         </div>
-    </div>
-    <div class="stat-card">
+    </a>
+    <a class="stat-card" href="{{ url_for('recipes', favorite='1', sort='favorites') }}" aria-label="View favorite recipes">
         <span class="stat-icon stat-red"><i class="bi bi-heart-fill" aria-hidden="true"></i></span>
         <div>
             <strong>{{ favorite_count }}</strong>
             <span>Favorites</span>
         </div>
-    </div>
-    <div class="stat-card">
+    </a>
+    <a class="stat-card" href="{{ url_for('meal_plan') }}" aria-label="View meal planner">
         <span class="stat-icon stat-gold"><i class="bi bi-calendar-week" aria-hidden="true"></i></span>
         <div>
             <strong>{{ planned_meals|length }}</strong>
             <span>Planned meals</span>
         </div>
-    </div>
-    <div class="stat-card">
+    </a>
+    <a class="stat-card" href="{{ url_for('shopping_list') }}" aria-label="View shopping list">
         <span class="stat-icon stat-teal"><i class="bi bi-bag-check" aria-hidden="true"></i></span>
         <div>
             <strong>{{ shopping_progress.checked }}/{{ shopping_progress.total }}</strong>
             <span>Shopping progress</span>
         </div>
-    </div>
+    </a>
 </section>
 
 <div class="dashboard-grid">

@@ -511,6 +511,15 @@ class AuthAndOwnershipTests(unittest.TestCase):
 
         self.assertIn(b"Dashboard", dashboard_response.data)
         self.assertIn(b"Lentil Soup", dashboard_response.data)
+        self.assertIn(b'href="/recipes"', dashboard_response.data)
+        self.assertIn(b'href="/recipes?favorite=1&amp;sort=favorites"', dashboard_response.data)
+        self.assertIn(b'href="/meal-plan"', dashboard_response.data)
+        self.assertIn(b'href="/shopping-list"', dashboard_response.data)
+
+        favorites_response = self.client.get("/recipes?favorite=1&sort=favorites")
+
+        self.assertIn(b"Showing favorite recipes", favorites_response.data)
+        self.assertIn(b"Lentil Soup", favorites_response.data)
 
     def test_shopping_list_groups_merges_and_persists_checked_items(self):
         self.register_and_login("parker")

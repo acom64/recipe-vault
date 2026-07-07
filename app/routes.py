@@ -727,6 +727,7 @@ def register_routes(app):
         selected_food_category = request.args.get("food_category", "").strip()
         selected_meal_type = request.args.get("meal_type", "").strip()
         selected_sort = request.args.get("sort", "title")
+        selected_favorite = request.args.get("favorite") == "1"
         query = Recipe.query.filter_by(user_id=current_user.id)
 
         if search_query:
@@ -754,6 +755,9 @@ def register_routes(app):
                 )
             )
 
+        if selected_favorite:
+            query = query.filter_by(is_favorite=True)
+
         sort_options = {
             "title": Recipe.title.asc(),
             "food_category": Recipe.food_category.asc(),
@@ -777,6 +781,7 @@ def register_routes(app):
             selected_food_category=selected_food_category,
             selected_meal_type=selected_meal_type,
             selected_sort=selected_sort,
+            selected_favorite=selected_favorite,
             recipe_count=Recipe.query.filter_by(user_id=current_user.id).count(),
         )
 

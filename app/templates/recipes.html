@@ -45,6 +45,9 @@
 </div>
 
 <form class="recipe-filter-bar" method="GET">
+    {% if selected_favorite %}
+        <input type="hidden" name="favorite" value="1">
+    {% endif %}
     <div class="search-field">
         <label for="q" class="form-label">Search</label>
         <div class="input-icon">
@@ -103,6 +106,13 @@
         <a class="btn btn-outline-secondary" href="{{ url_for('recipes') }}">Reset</a>
     </div>
 </form>
+
+{% if selected_favorite %}
+<div class="active-filter-callout">
+    <span><i class="bi bi-heart-fill" aria-hidden="true"></i> Showing favorite recipes</span>
+    <a href="{{ url_for('recipes') }}">Show all recipes</a>
+</div>
+{% endif %}
 
 {% if recipes %}
 <div class="recipe-grid">
@@ -187,6 +197,10 @@
         <h2>No recipes match those filters</h2>
         <p>Try a broader search or clear the filters.</p>
         <a class="btn btn-outline-primary" href="{{ url_for('recipes') }}">Clear Filters</a>
+    {% elif selected_favorite %}
+        <h2>No favorite recipes yet</h2>
+        <p>Tap the heart on recipes you want to keep close.</p>
+        <a class="btn btn-outline-primary" href="{{ url_for('recipes') }}">Show All Recipes</a>
     {% else %}
         <h2>Your recipe library is empty</h2>
         <p>Add a recipe or import a Recipe Vault export.</p>
