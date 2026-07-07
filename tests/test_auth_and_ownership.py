@@ -1,6 +1,7 @@
 from io import BytesIO
 from tempfile import TemporaryDirectory
 import unittest
+import zipfile
 
 from app import create_app
 from app.extensions import db
@@ -120,9 +121,12 @@ class AuthAndOwnershipTests(unittest.TestCase):
                 "meal_type": "breakfast",
                 "ingredients": "1 cup flour\n2 eggs",
                 "instructions": "Mix\nCook on a skillet",
+                "photo": (BytesIO(b"pancake photo"), "pancakes.jpg"),
+                "chef_photo": (BytesIO(b"chef photo"), "chef.jpg"),
             },
             follow_redirects=True,
         )
+        source_recipe = Recipe.query.filter_by(title="Pancakes").one()
 
         export_response = self.client.get("/recipes/export")
 
@@ -132,6 +136,20 @@ class AuthAndOwnershipTests(unittest.TestCase):
         self.assertIn(b"Pancakes", export_response.data)
         self.assertIn(b"Food Category:", export_response.data)
         self.assertIn(b"Meal Type:", export_response.data)
+        self.assertIn(b"Recipe Photo:", export_response.data)
+        self.assertIn(b"Chef Photo:", export_response.data)
+
+        backup_response = self.client.get("/recipes/export/backup")
+
+        self.assertEqual(backup_response.status_code, 200)
+        self.assertIn("attachment", backup_response.headers["Content-Disposition"])
+        self.assertIn("recipe-vault-backup.zip", backup_response.headers["Content-Disposition"])
+
+        with zipfile.ZipFile(BytesIO(backup_response.data)) as backup_zip:
+            backup_files = set(backup_zip.namelist())
+            self.assertIn("recipe-vault-export.txt", backup_files)
+            self.assertIn(f"uploads/{source_recipe.photo_filename}", backup_files)
+            self.assertIn(f"uploads/{source_recipe.chef_photo_filename}", backup_files)
 
         self.client.get("/logout", follow_redirects=True)
         self.register_and_login("erin")
@@ -155,6 +173,31 @@ class AuthAndOwnershipTests(unittest.TestCase):
         self.assertEqual(imported_recipe.meal_type, "breakfast")
         self.assertEqual(imported_recipe.instructions, "Mix\nCook on a skillet")
         self.assertEqual(len(imported_recipe.ingredients), 2)
+        self.assertIsNone(imported_recipe.photo_filename)
+        self.assertIsNone(imported_recipe.chef_photo_filename)
+
+        import_backup_response = self.client.post(
+            "/recipes/import",
+            data={
+                "recipe_export": (
+                    BytesIO(backup_response.data),
+                    "recipe-vault-backup.zip",
+                ),
+            },
+            follow_redirects=True,
+        )
+        imported_with_photos = (
+            Recipe.query.filter_by(title="Pancakes")
+            .filter(Recipe.user.has(username="erin"))
+            .order_by(Recipe.id.desc())
+            .first()
+        )
+
+        self.assertIn(b"Imported 1 recipes.", import_backup_response.data)
+        self.assertIsNotNone(imported_with_photos.photo_filename)
+        self.assertIsNotNone(imported_with_photos.chef_photo_filename)
+        self.assertNotEqual(imported_with_photos.photo_filename, source_recipe.photo_filename)
+        self.assertNotEqual(imported_with_photos.chef_photo_filename, source_recipe.chef_photo_filename)
 
     def test_recipes_can_be_labeled_and_filtered_by_category(self):
         self.register_and_login("gina")
@@ -189,6 +232,9 @@ class AuthAndOwnershipTests(unittest.TestCase):
         self.assertIn(b"Soups", recipes_response.data)
         self.assertIn(b"Lunch", recipes_response.data)
         self.assertNotIn(b"Egg Bowl", recipes_response.data)
+        self.assertIn(b'href="/recipes/export/backup"', recipes_response.data)
+        self.assertIn(b"data-auto-filter-form", recipes_response.data)
+        self.assertIn(b"data-auto-submit-filter", recipes_response.data)
 
     def test_recipes_can_be_searched(self):
         self.register_and_login("gloria")

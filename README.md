@@ -6,7 +6,7 @@ A private Flask web application for saving recipes, planning meals, and generati
 
 - User registration, login, logout, hashed passwords, and private user-owned data
 - Dashboard with recipe totals, weekly plan status, shopping progress, quick actions, and recent recipes
-- Recipe library with search, filters, sorting, category and meal badges, favorites, duplicate, import, and export
+- Recipe library with search, automatic filters, sorting, category and meal badges, favorites, duplicate, import, text export, and ZIP backups with photos
 - Recipe editor with ingredients, instructions, notes, photos, prep time, cook time, servings, and beginner-friendly ingredient parsing
 - Weekly meal planner for Monday through Sunday with breakfast, lunch, and dinner support
 - Autosaved meal-plan drafts and add-to-plan actions from the recipe library

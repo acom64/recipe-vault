@@ -15,6 +15,10 @@
             <i class="bi bi-download" aria-hidden="true"></i>
             Export
         </a>
+        <a class="btn btn-outline-primary" href="{{ url_for('export_recipe_backup') }}">
+            <i class="bi bi-file-earmark-zip" aria-hidden="true"></i>
+            Backup with Photos
+        </a>
         <form action="{{ url_for('import_recipes') }}" method="POST" enctype="multipart/form-data" class="recipe-import-form">
             <button type="button" class="btn btn-outline-primary recipe-import-toggle" aria-expanded="false">
                 <i class="bi bi-upload" aria-hidden="true"></i>
@@ -27,8 +31,8 @@
                         type="file"
                         class="visually-hidden recipe-import-input"
                         name="recipe_export"
-                        accept=".txt,text/plain"
-                        aria-label="Import recipe export text file"
+                        accept=".txt,.zip,text/plain,application/zip"
+                        aria-label="Import recipe export text or backup ZIP file"
                         required>
                 </label>
                 <span class="recipe-import-file text-muted" aria-live="polite">No file selected</span>
@@ -44,7 +48,7 @@
     </div>
 </div>
 
-<form class="recipe-filter-bar" method="GET">
+<form class="recipe-filter-bar" method="GET" data-auto-filter-form>
     {% if selected_favorite %}
         <input type="hidden" name="favorite" value="1">
     {% endif %}
@@ -64,7 +68,7 @@
 
     <div>
         <label for="food_category" class="form-label">Category</label>
-        <select id="food_category" name="food_category" class="form-select">
+        <select id="food_category" name="food_category" class="form-select" data-auto-submit-filter>
             <option value="">All categories</option>
             {% for category in food_categories %}
                 <option value="{{ category }}" {% if selected_food_category == category %}selected{% endif %}>
@@ -76,7 +80,7 @@
 
     <div>
         <label for="meal_type" class="form-label">Meal</label>
-        <select id="meal_type" name="meal_type" class="form-select">
+        <select id="meal_type" name="meal_type" class="form-select" data-auto-submit-filter>
             <option value="">All meals</option>
             {% for value, label in meal_types %}
                 <option value="{{ value }}" {% if selected_meal_type == value %}selected{% endif %}>
@@ -88,7 +92,7 @@
 
     <div>
         <label for="sort" class="form-label">Sort</label>
-        <select id="sort" name="sort" class="form-select">
+        <select id="sort" name="sort" class="form-select" data-auto-submit-filter>
             <option value="title" {% if selected_sort == "title" %}selected{% endif %}>Title</option>
             <option value="newest" {% if selected_sort == "newest" %}selected{% endif %}>Newest</option>
             <option value="favorites" {% if selected_sort == "favorites" %}selected{% endif %}>Favorites</option>
@@ -285,6 +289,18 @@
             const file = input.files && input.files[0];
             fileName.textContent = file ? file.name : "No file selected";
             submit.disabled = !file;
+        });
+    });
+
+    document.querySelectorAll("[data-auto-submit-filter]").forEach((field) => {
+        field.addEventListener("change", () => {
+            const form = field.closest("[data-auto-filter-form]");
+
+            if (!form) {
+                return;
+            }
+
+            form.requestSubmit();
         });
     });
 </script>

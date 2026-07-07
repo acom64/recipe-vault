@@ -1,9 +1,11 @@
 import os
 import re
+import zipfile
 from collections import OrderedDict
+from io import BytesIO
 from uuid import uuid4
 
-from flask import Response, current_app, flash, jsonify, redirect, render_template, request, session, url_for
+from flask import Response, current_app, flash, jsonify, redirect, render_template, request, send_file, session, url_for
 from flask_login import current_user, login_required, login_user, logout_user
 from markupsafe import Markup, escape
 from werkzeug.utils import secure_filename
@@ -68,6 +70,8 @@ def register_routes(app):
         "Servings:": "servings",
         "Notes:": "notes",
         "Favorite:": "is_favorite",
+        "Recipe Photo:": "photo_filename",
+        "Chef Photo:": "chef_photo_filename",
         "Ingredients:": "ingredients",
         "Instructions:": "instructions",
     }
@@ -413,6 +417,48 @@ def register_routes(app):
 
         return filename
 
+    def uploaded_image_path(filename):
+        if not filename:
+            return None
+
+        safe_filename = secure_filename(filename)
+
+        if safe_filename != filename:
+            return None
+
+        image_path = os.path.join(current_app.config["UPLOAD_FOLDER"], safe_filename)
+
+        if not os.path.isfile(image_path):
+            return None
+
+        return image_path
+
+    def zip_image_member(filename):
+        safe_filename = secure_filename(filename or "")
+
+        if not safe_filename:
+            return None
+
+        return f"uploads/{safe_filename}"
+
+    def save_image_from_backup(zip_file, filename):
+        member_name = zip_image_member(filename)
+
+        if not member_name or member_name not in zip_file.namelist():
+            return None
+
+        extension = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+        if extension not in allowed_image_extensions:
+            return None
+
+        saved_filename = f"{uuid4().hex}_{secure_filename(filename)}"
+        destination_path = os.path.join(current_app.config["UPLOAD_FOLDER"], saved_filename)
+
+        with zip_file.open(member_name) as source, open(destination_path, "wb") as destination:
+            destination.write(source.read())
+
+        return saved_filename
+
     def build_recipe_export(recipe_list):
         lines = [export_header, ""]
 
@@ -438,6 +484,10 @@ def register_routes(app):
                     recipe.notes or "",
                     "Favorite:",
                     "yes" if recipe.is_favorite else "no",
+                    "Recipe Photo:",
+                    recipe.photo_filename or "",
+                    "Chef Photo:",
+                    recipe.chef_photo_filename or "",
                     "Ingredients:",
                     format_ingredients(recipe.ingredients),
                     "Instructions:",
@@ -468,6 +518,8 @@ def register_routes(app):
                     "servings": [],
                     "notes": [],
                     "is_favorite": [],
+                    "photo_filename": [],
+                    "chef_photo_filename": [],
                     "ingredients": [],
                     "instructions": [],
                 }
@@ -797,22 +849,70 @@ def register_routes(app):
             headers={"Content-Disposition": "attachment; filename=recipe-vault-export.txt"},
         )
 
+    @app.route("/recipes/export/backup")
+    @login_required
+    def export_recipe_backup():
+        recipe_list = Recipe.query.filter_by(user_id=current_user.id).order_by(Recipe.title.asc()).all()
+        export_text = build_recipe_export(recipe_list)
+        archive_buffer = BytesIO()
+        added_images = set()
+
+        with zipfile.ZipFile(archive_buffer, "w", zipfile.ZIP_DEFLATED) as backup_zip:
+            backup_zip.writestr("recipe-vault-export.txt", export_text)
+
+            for recipe in recipe_list:
+                for filename in (recipe.photo_filename, recipe.chef_photo_filename):
+                    image_path = uploaded_image_path(filename)
+
+                    if not image_path or filename in added_images:
+                        continue
+
+                    backup_zip.write(image_path, zip_image_member(filename))
+                    added_images.add(filename)
+
+        archive_buffer.seek(0)
+
+        return send_file(
+            archive_buffer,
+            mimetype="application/zip",
+            as_attachment=True,
+            download_name="recipe-vault-backup.zip",
+        )
+
     @app.route("/recipes/import", methods=["POST"])
     @login_required
     def import_recipes():
         export_file = request.files.get("recipe_export")
 
         if not export_file or not export_file.filename:
-            flash("Please choose a recipe export text file to import.", "danger")
+            flash("Please choose a recipe export text or backup ZIP file to import.", "danger")
             return redirect(url_for("recipes"))
 
-        export_text = export_file.read().decode("utf-8-sig", errors="replace")
+        backup_zip = None
+
+        if export_file.filename.lower().endswith(".zip"):
+            try:
+                backup_zip = zipfile.ZipFile(BytesIO(export_file.read()))
+                export_text = backup_zip.read("recipe-vault-export.txt").decode("utf-8-sig", errors="replace")
+            except (KeyError, zipfile.BadZipFile):
+                flash("That backup ZIP does not contain a valid Recipe Vault export.", "danger")
+                return redirect(url_for("recipes"))
+        else:
+            export_text = export_file.read().decode("utf-8-sig", errors="replace")
+
         imported_recipe_data = parse_recipe_export(export_text)
         imported_recipes = []
 
         for recipe_data in imported_recipe_data:
             if not recipe_data["title"] or not recipe_data["ingredients"]:
                 continue
+
+            photo_filename = None
+            chef_photo_filename = None
+
+            if backup_zip:
+                photo_filename = save_image_from_backup(backup_zip, recipe_data.get("photo_filename", ""))
+                chef_photo_filename = save_image_from_backup(backup_zip, recipe_data.get("chef_photo_filename", ""))
 
             recipe = Recipe(
                 title=recipe_data["title"],
@@ -824,6 +924,8 @@ def register_routes(app):
                 servings=parse_export_int(recipe_data.get("servings", "")),
                 notes=recipe_data.get("notes", ""),
                 is_favorite=parse_export_bool(recipe_data.get("is_favorite", "")),
+                photo_filename=photo_filename,
+                chef_photo_filename=chef_photo_filename,
                 instructions=recipe_data["instructions"],
                 user_id=current_user.id,
             )
