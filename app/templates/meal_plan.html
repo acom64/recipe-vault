@@ -34,8 +34,8 @@
   </div>
 {% else %}
 <div class="planner-layout">
-  <section class="surface-panel planner-board">
-    <div class="section-heading">
+  <section class="planner-board">
+    <div class="section-heading planner-board-heading">
       <div>
         <h2>Choose Meals</h2>
         <p>{{ recipes|length }} available {{ "recipe" if recipes|length == 1 else "recipes" }}</p>
@@ -73,34 +73,113 @@
         {% for day in days %}
           <section class="meal-plan-day-group" aria-labelledby="meal-plan-day-{{ day|lower }}">
             <div class="meal-plan-day-header">
-              <h3 id="meal-plan-day-{{ day|lower }}" class="meal-plan-day">{{ day }}</h3>
+              <div>
+                <span class="meal-plan-day-kicker">Plan</span>
+                <h3 id="meal-plan-day-{{ day|lower }}" class="meal-plan-day">{{ day }}</h3>
+              </div>
             </div>
 
             <div class="meal-plan-day-slots">
               {% for slot, label in meal_plan_slots %}
                 {% set selected_recipe_id = planned_lookup.get((day, slot)) %}
-                <div class="meal-slot meal-slot-{{ slot }}" {% if (slot == "breakfast" and not show_breakfast) or (slot == "lunch" and not show_lunch) %}hidden{% endif %}>
-                  <label for="{{ slot }}_{{ day|lower }}" class="form-label">{{ label }}</label>
-                  <select id="{{ slot }}_{{ day|lower }}" name="{{ slot }}_{{ day|lower }}" class="form-select">
-                    <option value="" selected>Select a recipe</option>
+                {% set selected_recipe = (recipes | selectattr("id", "equalto", selected_recipe_id) | list | first) if selected_recipe_id else none %}
+                {% set field_id = slot ~ "_" ~ day|lower %}
+                <section
+                  class="meal-slot meal-slot-card{% if selected_recipe %} has-selection{% endif %} meal-slot-{{ slot }}" {% if (slot == "breakfast" and not show_breakfast) or (slot == "lunch" and not show_lunch) %}hidden{% endif %}
+                  data-meal-slot-card
+                  data-empty-title="No recipe selected"
+                  data-empty-description="Choose a recipe for {{ label|lower }}.">
+                  <div class="meal-slot-heading">
+                    <div class="meal-slot-label-wrap">
+                      <span class="meal-slot-icon" aria-hidden="true">
+                        {% if slot == "breakfast" %}
+                          <i class="bi bi-cup-hot"></i>
+                        {% elif slot == "lunch" %}
+                          <i class="bi bi-sun"></i>
+                        {% else %}
+                          <i class="bi bi-moon-stars"></i>
+                        {% endif %}
+                      </span>
+                      <label for="{{ field_id }}" class="form-label">{{ label }}</label>
+                    </div>
+                    <button class="btn btn-sm btn-light meal-slot-clear" type="button" data-clear-selection {% if not selected_recipe %}hidden{% endif %}>
+                      Clear
+                    </button>
+                  </div>
+
+                  <div class="meal-slot-preview" aria-live="polite">
+                    <strong data-selected-title>{{ selected_recipe.title if selected_recipe else "No recipe selected" }}</strong>
+                    <p data-selected-description>
+                      {% if selected_recipe and selected_recipe.description %}
+                        {{ selected_recipe.description }}
+                      {% elif selected_recipe %}
+                        No description added yet.
+                      {% else %}
+                        Choose a recipe for {{ label|lower }}.
+                      {% endif %}
+                    </p>
+                    <a
+                      class="meal-slot-view"
+                      data-selected-link
+                      href="{{ url_for('recipe_detail', recipe_id=selected_recipe.id) if selected_recipe else '#' }}"
+                      {% if not selected_recipe %}hidden{% endif %}>
+                      View recipe
+                    </a>
+                  </div>
+
+                  <div class="meal-recipe-picker" data-recipe-picker hidden>
+                    <div class="meal-recipe-search-shell">
+                      <i class="bi bi-search" aria-hidden="true"></i>
+                      <input
+                        type="search"
+                        class="form-control meal-recipe-search"
+                        data-recipe-search
+                        autocomplete="off"
+                        placeholder="Type to filter recipes"
+                        aria-label="Filter recipes for {{ label }} on {{ day }}">
+                    </div>
+                    <div
+                      class="meal-recipe-results"
+                      data-recipe-results
+                      role="listbox"
+                      aria-label="{{ label }} recipe choices for {{ day }}">
+                    </div>
+                    <p class="meal-recipe-empty" data-recipe-empty hidden>No matching recipes.</p>
+                  </div>
+
+                  <select id="{{ field_id }}" name="{{ field_id }}" class="form-select meal-recipe-select" data-recipe-select aria-label="{{ label }} for {{ day }}">
+                    <option
+                      value=""
+                      data-title="No recipe selected"
+                      data-description="Choose a recipe for {{ label|lower }}."
+                      data-url=""
+                      {% if not selected_recipe_id %}selected{% endif %}>
+                      No recipe selected
+                    </option>
 
                     {% for recipe in recipes %}
-                      <option value="{{ recipe.id }}" {% if selected_recipe_id == recipe.id %}selected{% endif %}>
+                      <option
+                        value="{{ recipe.id }}" {% if selected_recipe_id == recipe.id %}selected{% endif %}
+                        data-title="{{ recipe.title }}"
+                        data-description="{{ recipe.description or '' }}"
+                        data-url="{{ url_for('recipe_detail', recipe_id=recipe.id) }}">
                         {{ recipe.title }}
                       </option>
                     {% endfor %}
                   </select>
-                </div>
+                </section>
               {% endfor %}
             </div>
           </section>
         {% endfor %}
       </div>
 
-      <button type="submit" class="btn btn-primary btn-lg planner-save" data-loading-text="Saving...">
-        <i class="bi bi-check2" aria-hidden="true"></i>
-        Save Meal Plan
-      </button>
+      <div class="planner-save-bar">
+        <button type="submit" class="btn btn-primary btn-lg planner-save" data-loading-text="Saving...">
+          <i class="bi bi-check2" aria-hidden="true"></i>
+          Save Meal Plan
+        </button>
+      </div>
     </form>
   </section>
 
@@ -178,6 +257,259 @@
 
     toggle.addEventListener("change", syncFields);
     syncFields();
+  });
+
+  const updateMealSlotPreview = (select) => {
+    const slotCard = select.closest("[data-meal-slot-card]");
+
+    if (!slotCard) {
+      return;
+    }
+
+    const selectedOption = select.selectedOptions[0];
+    const hasSelection = Boolean(select.value);
+    const title = slotCard.querySelector("[data-selected-title]");
+    const description = slotCard.querySelector("[data-selected-description]");
+    const link = slotCard.querySelector("[data-selected-link]");
+    const clearButton = slotCard.querySelector("[data-clear-selection]");
+
+    if (title) {
+      title.textContent = hasSelection
+        ? selectedOption.dataset.title || selectedOption.textContent.trim()
+        : slotCard.dataset.emptyTitle;
+    }
+
+    if (description) {
+      description.textContent = hasSelection
+        ? selectedOption.dataset.description || "No description added yet."
+        : slotCard.dataset.emptyDescription;
+    }
+
+    if (link) {
+      const url = selectedOption.dataset.url;
+      link.hidden = !hasSelection || !url;
+      link.href = url || "#";
+    }
+
+    if (clearButton) {
+      clearButton.hidden = !hasSelection;
+    }
+
+    slotCard.classList.toggle("has-selection", hasSelection);
+  };
+
+  const normalizeRecipeSearch = (value) => value.trim().toLowerCase();
+
+  const getRecipeChoices = (select) => Array.from(select.options).map((option) => ({
+    value: option.value,
+    title: option.dataset.title || option.textContent.trim(),
+    description: option.dataset.description || "",
+    url: option.dataset.url || ""
+  }));
+
+  const syncRecipeSearchInput = (select) => {
+    const slotCard = select.closest("[data-meal-slot-card]");
+    const search = slotCard ? slotCard.querySelector("[data-recipe-search]") : null;
+    const selectedOption = select.selectedOptions[0];
+
+    if (!search || !selectedOption) {
+      return;
+    }
+
+    search.value = select.value ? selectedOption.dataset.title || selectedOption.textContent.trim() : "";
+  };
+
+  const closeRecipePicker = (select) => {
+    const slotCard = select.closest("[data-meal-slot-card]");
+    const picker = slotCard ? slotCard.querySelector("[data-recipe-picker]") : null;
+
+    if (!picker) {
+      return;
+    }
+
+    picker.classList.remove("is-open");
+    syncRecipeSearchInput(select);
+  };
+
+  const chooseRecipe = (select, value) => {
+    select.value = value;
+    syncRecipeSearchInput(select);
+    closeRecipePicker(select);
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+  };
+
+  const focusRecipeOption = (button, direction) => {
+    const options = Array.from(button.closest("[data-recipe-results]").querySelectorAll(".meal-recipe-option"));
+    const currentIndex = options.indexOf(button);
+    const nextIndex = currentIndex + direction;
+
+    if (options[nextIndex]) {
+      options[nextIndex].focus();
+    }
+  };
+
+  const renderRecipeChoices = (select, queryOverride = null) => {
+    const slotCard = select.closest("[data-meal-slot-card]");
+    const picker = slotCard ? slotCard.querySelector("[data-recipe-picker]") : null;
+    const search = slotCard ? slotCard.querySelector("[data-recipe-search]") : null;
+    const results = slotCard ? slotCard.querySelector("[data-recipe-results]") : null;
+    const empty = slotCard ? slotCard.querySelector("[data-recipe-empty]") : null;
+
+    if (!picker || !search || !results || !empty) {
+      return;
+    }
+
+    const query = normalizeRecipeSearch(queryOverride === null ? search.value : queryOverride);
+    const choices = getRecipeChoices(select).filter((choice) => {
+      const searchableText = normalizeRecipeSearch(`${choice.title} ${choice.description}`);
+      return !query || searchableText.includes(query);
+    });
+
+    results.replaceChildren();
+    empty.hidden = choices.length > 0;
+
+    choices.forEach((choice) => {
+      const button = document.createElement("button");
+      const title = document.createElement("strong");
+      const description = document.createElement("small");
+
+      button.type = "button";
+      button.className = "meal-recipe-option";
+      button.dataset.recipeValue = choice.value;
+      button.setAttribute("role", "option");
+      button.setAttribute("aria-selected", choice.value === select.value ? "true" : "false");
+      button.classList.toggle("is-selected", choice.value === select.value);
+
+      title.textContent = choice.title;
+      description.textContent = choice.description || (choice.value ? "No description added yet." : "Clear this meal slot");
+
+      button.append(title, description);
+      button.addEventListener("mousedown", (event) => event.preventDefault());
+      button.addEventListener("click", () => chooseRecipe(select, choice.value));
+      button.addEventListener("keydown", (event) => {
+        if (event.key === "ArrowDown") {
+          event.preventDefault();
+          focusRecipeOption(button, 1);
+        }
+
+        if (event.key === "ArrowUp") {
+          event.preventDefault();
+          focusRecipeOption(button, -1);
+        }
+
+        if (event.key === "Escape") {
+          event.preventDefault();
+          closeRecipePicker(select);
+          search.focus();
+        }
+      });
+
+      results.append(button);
+    });
+  };
+
+  const openRecipePicker = (select, showAll = false) => {
+    const slotCard = select.closest("[data-meal-slot-card]");
+    const picker = slotCard ? slotCard.querySelector("[data-recipe-picker]") : null;
+
+    if (!picker) {
+      return;
+    }
+
+    picker.classList.add("is-open");
+    renderRecipeChoices(select, showAll ? "" : null);
+  };
+
+  const enhanceRecipeSelect = (select) => {
+    const slotCard = select.closest("[data-meal-slot-card]");
+    const picker = slotCard ? slotCard.querySelector("[data-recipe-picker]") : null;
+    const search = slotCard ? slotCard.querySelector("[data-recipe-search]") : null;
+
+    if (!slotCard || !picker || !search) {
+      return;
+    }
+
+    picker.hidden = false;
+    select.hidden = true;
+    slotCard.classList.add("has-searchable-picker");
+    syncRecipeSearchInput(select);
+
+    search.addEventListener("focus", () => {
+      search.select();
+      openRecipePicker(select, !select.value);
+    });
+
+    search.addEventListener("input", () => openRecipePicker(select));
+    search.addEventListener("keydown", (event) => {
+      const firstOption = picker.querySelector(".meal-recipe-option");
+
+      if (event.key === "ArrowDown" && firstOption) {
+        event.preventDefault();
+        firstOption.focus();
+      }
+
+      if (event.key === "Enter" && firstOption && search.value.trim()) {
+        event.preventDefault();
+        firstOption.click();
+      }
+
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeRecipePicker(select);
+        search.blur();
+      }
+    });
+
+    picker.addEventListener("focusout", () => {
+      window.setTimeout(() => {
+        if (!picker.contains(document.activeElement)) {
+          closeRecipePicker(select);
+        }
+      }, 0);
+    });
+  };
+
+  document.querySelectorAll("[data-recipe-select]").forEach((select) => {
+    select.addEventListener("change", () => {
+      updateMealSlotPreview(select);
+      syncRecipeSearchInput(select);
+    });
+    updateMealSlotPreview(select);
+    enhanceRecipeSelect(select);
+  });
+
+  document.querySelectorAll("[data-clear-selection]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const slotCard = button.closest("[data-meal-slot-card]");
+      const select = slotCard ? slotCard.querySelector("[data-recipe-select]") : null;
+      const search = slotCard ? slotCard.querySelector("[data-recipe-search]") : null;
+
+      if (!select) {
+        return;
+      }
+
+      select.value = "";
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+
+      if (search) {
+        search.focus();
+      } else {
+        select.focus();
+      }
+    });
+  });
+
+  document.addEventListener("click", (event) => {
+    document.querySelectorAll("[data-recipe-picker].is-open").forEach((picker) => {
+      if (!picker.contains(event.target)) {
+        const slotCard = picker.closest("[data-meal-slot-card]");
+        const select = slotCard ? slotCard.querySelector("[data-recipe-select]") : null;
+
+        if (select) {
+          closeRecipePicker(select);
+        }
+      }
+    });
   });
 
   const mealPlanForm = document.querySelector("#meal-plan-form");

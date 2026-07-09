@@ -419,6 +419,8 @@ class AuthAndOwnershipTests(unittest.TestCase):
         initial_response = self.client.get("/meal-plan")
         self.assertIn(b"meal-slot-breakfast\" hidden", initial_response.data)
         self.assertIn(b"meal-slot-lunch\" hidden", initial_response.data)
+        self.assertIn(b"data-recipe-search", initial_response.data)
+        self.assertIn(b"Type to filter recipes", initial_response.data)
 
         response = self.client.post(
             "/meal-plan",
@@ -440,13 +442,28 @@ class AuthAndOwnershipTests(unittest.TestCase):
         self.assertIn(b"Lunch:", response.data)
         self.assertIn(b"Dinner:", response.data)
 
+        clear_response = self.client.post(
+            "/meal-plan",
+            data={
+                "include_breakfast": "1",
+                "include_lunch": "1",
+                "breakfast_monday": "",
+                "lunch_monday": "",
+                "dinner_monday": "",
+            },
+            follow_redirects=True,
+        )
+
+        self.assertEqual(PlannedMeal.query.count(), 0)
+        self.assertIn(b"No recipe selected", clear_response.data)
+
     def test_meal_plan_draft_survives_navigation_without_saving(self):
         self.register_and_login("morgan")
         self.client.post(
             "/recipes/new",
             data={
                 "title": "Waffles",
-                "description": "",
+                "description": "Crisp weekend breakfast",
                 "food_category": "Bowls",
                 "meal_type": "breakfast",
                 "ingredients": "1 cup flour",
@@ -472,6 +489,9 @@ class AuthAndOwnershipTests(unittest.TestCase):
         self.assertIn(b"Your unsaved meal plan draft has been restored.", meal_plan_response.data)
         self.assertIn(b'id="include_breakfast"', meal_plan_response.data)
         self.assertIn(f'value="{recipe.id}" selected'.encode(), meal_plan_response.data)
+        self.assertIn(b"Crisp weekend breakfast", meal_plan_response.data)
+        self.assertIn(f'href="/recipes/{recipe.id}"'.encode(), meal_plan_response.data)
+        self.assertIn(b"View recipe", meal_plan_response.data)
         self.assertEqual(PlannedMeal.query.count(), 0)
 
     def test_recipe_list_can_add_recipe_to_meal_plan_draft(self):
