@@ -573,10 +573,17 @@ class AuthAndOwnershipTests(unittest.TestCase):
         self.assertIn(b"Copy of Lentil Soup", duplicate_response.data)
         self.assertEqual(Recipe.query.count(), 2)
 
+        self.client.post(
+            "/meal-plan",
+            data={"dinner_monday": str(recipe.id)},
+            follow_redirects=True,
+        )
+
         dashboard_response = self.client.get("/dashboard")
 
         self.assertIn(b"Dashboard", dashboard_response.data)
         self.assertIn(b"Lentil Soup", dashboard_response.data)
+        self.assertIn(f'class="mini-meal-link" href="/recipes/{recipe.id}"'.encode(), dashboard_response.data)
         self.assertIn(b'href="/recipes"', dashboard_response.data)
         self.assertIn(b'href="/recipes?favorite=1&amp;sort=favorites"', dashboard_response.data)
         self.assertIn(b'href="/meal-plan"', dashboard_response.data)

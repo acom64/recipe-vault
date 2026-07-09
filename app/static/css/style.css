@@ -695,7 +695,27 @@ textarea {
     font-weight: 800;
 }
 
+.mini-meal-link {
+    border-radius: 4px;
+    color: var(--ink);
+    min-width: 0;
+    text-decoration: none;
+}
+
+.mini-meal-link:hover,
+.mini-meal-link:focus-visible {
+    color: var(--primary-strong);
+    text-decoration: underline;
+    text-underline-offset: 0.16em;
+}
+
+.mini-meal-link:focus-visible {
+    box-shadow: 0 0 0 0.2rem rgba(40, 104, 79, 0.18);
+    outline: 0;
+}
+
 .mini-meal strong {
+    display: block;
     font-size: 0.88rem;
 }
 

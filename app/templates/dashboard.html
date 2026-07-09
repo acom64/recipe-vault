@@ -74,7 +74,9 @@
                             {% for meal in meals %}
                                 <div class="mini-meal">
                                     <span>{{ meal_type_label(meal.meal_type) }}</span>
-                                    <strong>{{ meal.recipe.title }}</strong>
+                                    <a class="mini-meal-link" href="{{ url_for('recipe_detail', recipe_id=meal.recipe.id) }}">
+                                        <strong>{{ meal.recipe.title }}</strong>
+                                    </a>
                                 </div>
                             {% endfor %}
                         {% else %}
