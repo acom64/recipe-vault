@@ -1,4 +1,5 @@
 import os
+from datetime import timedelta
 
 from flask import Flask
 from flask_login import LoginManager
@@ -24,6 +25,7 @@ def create_app(test_config=None):
         SQLALCHEMY_DATABASE_URI=os.environ.get("DATABASE_URL", "sqlite:///recipes.db"),
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
         UPLOAD_FOLDER=os.path.join(app.static_folder, "uploads"),
+        REMEMBER_COOKIE_DURATION=timedelta(days=30),
     )
 
     if test_config:

@@ -750,18 +750,20 @@ def register_routes(app):
         if request.method == "POST":
             username = request.form.get("username", "").strip()
             password = request.form.get("password", "").strip()
+            remember = request.form.get("remember") == "1"
 
             if not username or not password:
                 flash("Please enter both a username and password.", "danger")
-                return render_template("login.html")
+                return render_template("login.html", username=username, remember=remember)
 
             user = User.query.filter_by(username=username).first()
             if user and user.check_password(password):
-                login_user(user)
+                login_user(user, remember=remember)
                 flash(f"Welcome back, {user.username}!", "success")
                 return redirect(request.args.get("next") or url_for("dashboard"))
 
             flash("Invalid username or password.", "danger")
+            return render_template("login.html", username=username, remember=remember)
 
         return render_template("login.html")
 

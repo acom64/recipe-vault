@@ -85,6 +85,26 @@ class AuthAndOwnershipTests(unittest.TestCase):
         recipes_response = self.client.get("/recipes")
         self.assertNotIn(b"Pizza", recipes_response.data)
 
+    def test_login_can_remember_user_on_this_device(self):
+        self.client.post(
+            "/register",
+            data={"username": "remembered", "password": "secret123"},
+            follow_redirects=True,
+        )
+
+        login_page = self.client.get("/login")
+        self.assertIn(b'name="remember"', login_page.data)
+        self.assertIn(b"Stay logged in on this device", login_page.data)
+
+        login_response = self.client.post(
+            "/login",
+            data={"username": "remembered", "password": "secret123", "remember": "1"},
+        )
+        set_cookie_headers = login_response.headers.getlist("Set-Cookie")
+
+        self.assertEqual(login_response.status_code, 302)
+        self.assertTrue(any(header.startswith("remember_token=") for header in set_cookie_headers))
+
     def test_recipe_and_chef_photos_are_saved_and_rendered(self):
         self.register_and_login()
 

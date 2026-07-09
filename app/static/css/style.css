@@ -531,6 +531,28 @@ textarea {
     margin-top: 1.4rem;
 }
 
+.auth-remember {
+    align-items: center;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    display: flex;
+    gap: 0.55rem;
+    margin: -0.15rem 0 0;
+    min-height: 46px;
+    padding: 0.65rem 0.85rem;
+}
+
+.auth-remember .form-check-input {
+    flex: 0 0 auto;
+    margin: 0;
+}
+
+.auth-remember .form-check-label {
+    color: var(--ink);
+    font-weight: 800;
+}
+
 .auth-switch {
     color: var(--muted);
     margin: 1rem 0 0;

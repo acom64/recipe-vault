@@ -14,7 +14,7 @@
         <label for="username" class="form-label">Username</label>
         <div class="input-icon">
           <i class="bi bi-person" aria-hidden="true"></i>
-          <input type="text" class="form-control form-control-lg" id="username" name="username" autocomplete="username" required>
+          <input type="text" class="form-control form-control-lg" id="username" name="username" autocomplete="username" value="{{ username|default('') }}" required>
         </div>
       </div>
 
@@ -24,6 +24,13 @@
           <i class="bi bi-lock" aria-hidden="true"></i>
           <input type="password" class="form-control form-control-lg" id="password" name="password" autocomplete="current-password" required>
         </div>
+      </div>
+
+      <div class="form-check auth-remember">
+        <input class="form-check-input" type="checkbox" value="1" id="remember" name="remember" {% if remember|default(false) %}checked{% endif %}>
+        <label class="form-check-label" for="remember">
+          Stay logged in on this device
+        </label>
       </div>
 
       <button type="submit" class="btn btn-primary btn-lg w-100" data-loading-text="Logging in...">
